@@ -29,8 +29,9 @@
       opacity:0; transition:opacity .12s; text-shadow:0 3px 15px #000;
     }
     #crosshair { position:absolute; left:50%; top:50%; width:5px; height:5px; margin:-2px; border-radius:50%; background:rgba(255,255,255,.55); }
-    #mobileControls { display:none; position:absolute; inset:0; pointer-events:none; }
-    .stickZone { position:absolute; bottom:16px; width:44vw; height:42vh; pointer-events:auto; touch-action:none; }
+    #mobileControls { display:none; position:fixed; inset:0; pointer-events:none; z-index:6; }
+    body.poster-open #mobileControls { z-index:80; }
+    .stickZone { position:absolute; bottom:30px; width:44vw; height:42vh; pointer-events:auto; touch-action:none; }
     #leftZone { left:0; }
     #rightZone { right:0; }
     .stickBase {
@@ -93,7 +94,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.17: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.18: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +103,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.17</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.18</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -687,6 +688,7 @@
       posterOverlayOpen=true;
       posterOverlayImg.src=poster.userData.posterSource;
       posterOverlay.style.display='flex';
+      document.body.classList.add('poster-open');
       posterPrompt.style.display='none';
       document.exitPointerLock?.();
       P.vel.x=0; P.vel.z=0;
@@ -695,6 +697,7 @@
       if(!posterOverlayOpen)return;
       posterOverlayOpen=false;
       posterOverlay.style.display='none';
+      document.body.classList.remove('poster-open');
       posterOverlayImg.removeAttribute('src');
       if(matchMedia('(pointer:fine)').matches) setTimeout(()=>renderer.domElement.requestPointerLock?.(),80);
     }
@@ -717,6 +720,20 @@
         renderer.domElement.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
+    // Only the geometric front (+Z in the poster's local space) can be enlarged.
+    const posterFrontNormal=new THREE.Vector3();
+    const posterToCamera=new THREE.Vector3();
+    const posterWorldPos=new THREE.Vector3();
+    const posterNormalMatrix=new THREE.Matrix3();
+    function isPosterFrontFacing(poster){
+      poster.updateWorldMatrix(true,false);
+      poster.getWorldPosition(posterWorldPos);
+      posterNormalMatrix.getNormalMatrix(poster.matrixWorld);
+      posterFrontNormal.set(0,0,1).applyMatrix3(posterNormalMatrix).normalize();
+      posterToCamera.copy(camera.position).sub(posterWorldPos).normalize();
+      return posterFrontNormal.dot(posterToCamera)>0.02;
+    }
+
     // Screen-space poster hit testing: robust on mobile and independent from 3D raycasts.
     function pointerInsidePoster(poster,clientX,clientY){
       poster.updateWorldMatrix(true,false);
@@ -745,7 +762,7 @@
         const dy=poster.position.y-(P.pos.y+.65);
         const dz=poster.position.z-P.pos.z;
         const d=dx*dx+dy*dy+dz*dz;
-        if(d<=20.25 && d<bestD && pointerInsidePoster(poster,e.clientX,e.clientY)){
+        if(d<=20.25 && d<bestD && isPosterFrontFacing(poster) && pointerInsidePoster(poster,e.clientX,e.clientY)){
           hitPoster=poster; bestD=d;
         }
       }
@@ -761,14 +778,24 @@
       P.camPitch = THREE.MathUtils.clamp(P.camPitch+e.movementY*.0022,-.15,1.05);
     });
 
+    const mobileControlsEl=document.getElementById('mobileControls');
+    // Move mobile controls out of #hud so they can sit above an enlarged poster without lifting the whole HUD.
+    document.body.appendChild(mobileControlsEl);
     const mobile={moveX:0,moveY:0,lookX:0,lookY:0};
     function setupStick(zoneId,baseId,mode){
       const zone=document.getElementById(zoneId), base=document.getElementById(baseId);
       let pointer=null, sx=0, sy=0;
       const knob=base.querySelector('.stickKnob');
       zone.addEventListener('pointerdown',e=>{
+        if(posterOverlayOpen) closePoster();
         if(pointer!==null) return; pointer=e.pointerId; zone.setPointerCapture(pointer);
-        sx=e.clientX; sy=e.clientY; base.style.left=sx+'px'; base.style.top=sy+'px'; base.style.display='block';
+        sx=e.clientX; sy=e.clientY;
+        const zr=zone.getBoundingClientRect();
+        // Base lives inside the zone: convert viewport coordinates to zone-local coordinates.
+        // This fixes the old double-offset that could push the joystick below the screen.
+        const localX=THREE.MathUtils.clamp(e.clientX-zr.left,66,zr.width-66);
+        const localY=THREE.MathUtils.clamp(e.clientY-zr.top,66,zr.height-66);
+        base.style.left=localX+'px'; base.style.top=localY+'px'; base.style.display='block';
       });
       zone.addEventListener('pointermove',e=>{
         if(e.pointerId!==pointer) return;
@@ -790,7 +817,7 @@
     }
     setupStick('leftZone','leftBase','move');
     setupStick('rightZone','rightBase','look');
-    document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();tryBigJump();});
+    document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();if(posterOverlayOpen) closePoster();tryBigJump();});
 
     // ------------------------------------------------------------
     // AUDIO
