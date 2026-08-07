@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.8: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.9: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.8</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.9</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -396,7 +396,7 @@
     const lavaMat = new THREE.MeshStandardMaterial({
       color:0xff5b15, emissive:0xff2600, emissiveIntensity:1.6, roughness:.55
     });
-    const lava = new THREE.Mesh(new THREE.PlaneGeometry(21.0,Math.abs(Z_PIT_NORTH-Z_PIT_SOUTH)+.6,1,1),lavaMat);
+    const lava = new THREE.Mesh(new THREE.PlaneGeometry(126.0,(Math.abs(Z_PIT_NORTH-Z_PIT_SOUTH)+.6)*6,1,1),lavaMat);
     lava.rotation.x=-Math.PI/2; lava.position.set(0,-10,(Z_PIT_SOUTH+Z_PIT_NORTH)/2); scene.add(lava);
     const lavaGlow = new THREE.PointLight(0xff3b0a,45,24,2); lavaGlow.position.set(0,-7,(Z_PIT_SOUTH+Z_PIT_NORTH)/2); scene.add(lavaGlow);
 
@@ -783,7 +783,7 @@
 
     // Lava death FX: the character sinks, chars dark and releases a little black smoke.
     const smokeParticles=[];
-    const smokeGeo=new THREE.SphereGeometry(.075,7,5);
+    const smokeGeo=new THREE.SphereGeometry(.12,8,6);
     function setSoquetinBurn(amount){
       const t=THREE.MathUtils.clamp(amount,0,1);
       const dark=new THREE.Color(0x171717);
@@ -803,17 +803,17 @@
       });
     }
     function spawnDeathSmoke(){
-      const mat=new THREE.MeshBasicMaterial({color:0x111111,transparent:true,opacity:.42,depthWrite:false});
+      const mat=new THREE.MeshBasicMaterial({color:0x0b0b0b,transparent:true,opacity:.68,depthWrite:false});
       const puff=new THREE.Mesh(smokeGeo,mat);
       puff.position.set(
-        P.pos.x+(Math.random()-.5)*.28,
-        P.pos.y+.48+Math.random()*.38,
-        P.pos.z+(Math.random()-.5)*.28
+        P.pos.x+(Math.random()-.5)*.42,
+        P.pos.y+.35+Math.random()*.55,
+        P.pos.z+(Math.random()-.5)*.42
       );
-      const k=.65+Math.random()*.75;
+      const k=.85+Math.random()*1.15;
       puff.scale.setScalar(k);
       scene.add(puff);
-      smokeParticles.push({mesh:puff,age:0,life:.65+Math.random()*.45,vx:(Math.random()-.5)*.10,vz:(Math.random()-.5)*.10,vy:.22+Math.random()*.16});
+      smokeParticles.push({mesh:puff,age:0,life:1.0+Math.random()*.65,vx:(Math.random()-.5)*.16,vz:(Math.random()-.5)*.16,vy:.34+Math.random()*.24});
     }
     function updateDeathSmoke(dt){
       for(let i=smokeParticles.length-1;i>=0;i--){
@@ -823,8 +823,8 @@
         p.mesh.position.y+=p.vy*dt;
         p.mesh.position.z+=p.vz*dt;
         const q=p.age/p.life;
-        p.mesh.material.opacity=.42*(1-q);
-        p.mesh.scale.multiplyScalar(1+dt*.8);
+        p.mesh.material.opacity=.68*(1-q);
+        p.mesh.scale.multiplyScalar(1+dt*1.15);
         if(q>=1){
           scene.remove(p.mesh);
           p.mesh.material.dispose();
@@ -837,11 +837,17 @@
       smokeParticles.length=0;
     }
 
+    const deathCameraPos=new THREE.Vector3();
+    const deathCameraQuat=new THREE.Quaternion();
+
     function die(){
       if(P.dead)return;
+      deathCameraPos.copy(camera.position);
+      deathCameraQuat.copy(camera.quaternion);
       P.dead=true;
       P.respawnTimer=1.5;
-      P.deathSinkVy=Math.min(-.12,P.vel.y*.5);
+      // Fixed slow sink: over 1.5 s the model descends about one full visual height.
+      P.deathSinkVy=-(CHARACTER_VISUAL_HEIGHT/1.5)*.98;
       P.deathSmokeTimer=0;
       P.vel.x=0; P.vel.z=0; P.vel.y=0;
       P.grounded=false;
@@ -863,7 +869,7 @@
         P.deathSmokeTimer-=dt;
         if(P.deathSmokeTimer<=0 && deathProgress>.08){
           spawnDeathSmoke();
-          P.deathSmokeTimer=.13+Math.random()*.08;
+          P.deathSmokeTimer=.045+Math.random()*.035;
         }
         playerRoot.position.copy(P.pos);
         playerRoot.rotation.y=P.yaw;
@@ -944,6 +950,11 @@
     // CAMERA WITH WALL AVOIDANCE
     // ------------------------------------------------------------
     function updateCamera(dt){
+      if(P.dead){
+        camera.position.copy(deathCameraPos);
+        camera.quaternion.copy(deathCameraQuat);
+        return;
+      }
       const target=tmpV.set(P.pos.x,P.pos.y+1.05,P.pos.z);
       const dist=4.4;
       const horiz=Math.cos(P.camPitch)*dist;
