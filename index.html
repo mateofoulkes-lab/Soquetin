@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.9: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.10: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.9</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.10</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -783,7 +783,7 @@
 
     // Lava death FX: the character sinks, chars dark and releases a little black smoke.
     const smokeParticles=[];
-    const smokeGeo=new THREE.SphereGeometry(.12,8,6);
+    const smokeGeo=new THREE.SphereGeometry(.085,8,6);
     function setSoquetinBurn(amount){
       const t=THREE.MathUtils.clamp(amount,0,1);
       const dark=new THREE.Color(0x171717);
@@ -803,17 +803,17 @@
       });
     }
     function spawnDeathSmoke(){
-      const mat=new THREE.MeshBasicMaterial({color:0x0b0b0b,transparent:true,opacity:.68,depthWrite:false});
+      const mat=new THREE.MeshBasicMaterial({color:0x0b0b0b,transparent:true,opacity:.42,depthWrite:false});
       const puff=new THREE.Mesh(smokeGeo,mat);
       puff.position.set(
         P.pos.x+(Math.random()-.5)*.42,
         P.pos.y+.35+Math.random()*.55,
         P.pos.z+(Math.random()-.5)*.42
       );
-      const k=.85+Math.random()*1.15;
+      const k=.70+Math.random()*.85;
       puff.scale.setScalar(k);
       scene.add(puff);
-      smokeParticles.push({mesh:puff,age:0,life:1.0+Math.random()*.65,vx:(Math.random()-.5)*.16,vz:(Math.random()-.5)*.16,vy:.34+Math.random()*.24});
+      smokeParticles.push({mesh:puff,age:0,life:.85+Math.random()*.50,vx:(Math.random()-.5)*.14,vz:(Math.random()-.5)*.14,vy:.68+Math.random()*.34});
     }
     function updateDeathSmoke(dt){
       for(let i=smokeParticles.length-1;i>=0;i--){
@@ -823,8 +823,8 @@
         p.mesh.position.y+=p.vy*dt;
         p.mesh.position.z+=p.vz*dt;
         const q=p.age/p.life;
-        p.mesh.material.opacity=.68*(1-q);
-        p.mesh.scale.multiplyScalar(1+dt*1.15);
+        p.mesh.material.opacity=.42*(1-q);
+        p.mesh.scale.multiplyScalar(1+dt*.75);
         if(q>=1){
           scene.remove(p.mesh);
           p.mesh.material.dispose();
