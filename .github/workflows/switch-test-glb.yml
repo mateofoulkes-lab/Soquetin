@@ -1,0 +1,35 @@
+name: Switch test GLB
+
+on:
+  push:
+    paths:
+      - '.github/workflows/switch-test-glb.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Switch model and version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("const SOQUETIN_MODEL_URL='3354c2e8-ca8b-4056-87f9-db61cd76f25d.glb';", "const SOQUETIN_MODEL_URL='sock puppet 3d model.glb';")
+          s=s.replace('Prototipo V1.3:', 'Prototipo V1.4:')
+          s=s.replace('Prototipo V1.2:', 'Prototipo V1.4:')
+          s=s.replace('Recuperador de password de Soquetin · V1.3', 'Recuperador de password de Soquetin · V1.4')
+          s=s.replace('Recuperador de password de Soquetin · V1.2', 'Recuperador de password de Soquetin · V1.4')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use sock puppet test GLB and bump to V1.4" || exit 0
+          git push
