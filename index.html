@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.2: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.3: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.2</div>
+    <div id="title">Recuperador de password de Soquetin · V1.3</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="respawn">🔥</div>
@@ -119,6 +119,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
     // ------------------------------------------------------------
     // BASIC SETUP
@@ -549,6 +550,11 @@
     dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
     gltfLoader.setDRACOLoader(dracoLoader);
     gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+    const ktx2Loader=new KTX2Loader();
+    ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/basis/');
+    ktx2Loader.detectSupport(renderer);
+    gltfLoader.setKTX2Loader(ktx2Loader);
+    const modelStatus=document.getElementById('modelStatus');
     gltfLoader.load(SOQUETIN_MODEL_URL,(gltf)=>{
       const model=gltf.scene;
       model.updateMatrixWorld(true);
@@ -577,10 +583,13 @@
 
       visualRoot.remove(body);
       visualRoot.add(model);
+      if(modelStatus){modelStatus.textContent='MODELO: OK · GLB';modelStatus.style.color='#9dff9d';}
     },undefined,(err)=>{
       console.warn('No se pudo cargar el Soquetin GLB; se mantiene el cubo provisional.',err);
       const status=document.getElementById('status');
-      if(status){ status.textContent='Error cargando Soquetin: '+(err?.message||err); status.style.color='#ff9b7a'; }
+      const msg=(err?.message||String(err));
+      if(status){ status.textContent='Error cargando Soquetin: '+msg; status.style.color='#ff9b7a'; }
+      if(modelStatus){modelStatus.textContent='MODELO ERROR: '+msg;modelStatus.style.color='#ff8f78';}
     });
 
     const P={
