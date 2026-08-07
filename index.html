@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.10: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.11: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.10</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.11</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -554,11 +554,12 @@
     // Visual content lives under a base pivot at the character's feet.
     // This lets squash/stretch deform the model without changing the collider.
     const visualRoot=new THREE.Group(); playerRoot.add(visualRoot);
-
+    // Separate tilt pivot so squash/stretch remains independent from rocking.
+    const tiltRoot=new THREE.Group(); visualRoot.add(tiltRoot);
 
     // Simple fallback while the GLB loads (or if it ever fails).
     const body=new THREE.Mesh(new THREE.BoxGeometry(.44,1.12,.44),new THREE.MeshStandardMaterial({color:0xe2d2a2,roughness:.72}));
-    body.castShadow=true; body.receiveShadow=true; body.position.y=.56; visualRoot.add(body);
+    body.castShadow=true; body.receiveShadow=true; body.position.y=.56; tiltRoot.add(body);
     const face=new THREE.Mesh(new THREE.PlaneGeometry(.28,.22),new THREE.MeshBasicMaterial({color:0x1a1814}));
     face.position.set(0,.73,-.221); face.rotation.y=Math.PI; body.add(face);
     const eyeMat=new THREE.MeshBasicMaterial({color:0xece6d7});
@@ -627,8 +628,8 @@
         }
       });
 
-      visualRoot.remove(body);
-      visualRoot.add(model);
+      tiltRoot.remove(body);
+      tiltRoot.add(model);
       if(modelStatus){modelStatus.textContent='MODELO: OK · GLB';modelStatus.style.color='#9dff9d';}
     },undefined,(err)=>{
       console.warn('No se pudo cargar el Soquetin GLB; se mantiene el cubo provisional.',err);
@@ -643,6 +644,7 @@
       yaw:Math.PI, camYaw:Math.PI, camPitch:.24,
       radius:.22, height:1.12, grounded:true,
       autoHopTimer:0, squash:0, dead:false, respawnTimer:0, deathSinkVy:0, deathSmokeTimer:0,
+      animPhase:'idle', animTime:0, animLaunchVy:2.35, tiltDeg:0, tiltPivotY:0, animStartTilt:0, animStartPivot:0,
       spawn:new THREE.Vector3(0,.02,10.2), bigJumpUsed:false
     };
 
@@ -729,6 +731,66 @@
       return fwd.multiplyScalar(z).add(right.multiplyScalar(x));
     }
 
+    // ------------------------------------------------------------
+    // WHOLE-BODY JUMP ROCKING
+    // Forward lean = -10 deg around the feet. On descent, the pivot travels
+    // to the head while the body passes through neutral, then the feet swing
+    // forward to +20 deg around the head. Collider/physics remain untouched.
+    function applyCharacterTilt(deg,pivotY){
+      P.tiltDeg=deg; P.tiltPivotY=pivotY;
+      const a=THREE.MathUtils.degToRad(deg);
+      tiltRoot.rotation.x=a;
+      // Rotate around local pivot p=(0,pivotY,0): translation is p - R*p.
+      tiltRoot.position.set(0,pivotY*(1-Math.cos(a)),-pivotY*Math.sin(a));
+    }
+    function beginJumpTilt(launchVy){
+      P.animPhase='takeoff';
+      P.animTime=0;
+      P.animLaunchVy=Math.max(.1,launchVy);
+      P.animStartTilt=P.tiltDeg;
+      P.animStartPivot=P.tiltPivotY;
+    }
+    function beginLandingTilt(){
+      P.animPhase='land';
+      P.animTime=0;
+      P.animStartTilt=P.tiltDeg;
+      P.animStartPivot=P.tiltPivotY;
+    }
+    function updateJumpTilt(dt){
+      if(P.dead) return;
+      const H=CHARACTER_VISUAL_HEIGHT;
+      if(P.animPhase==='takeoff'){
+        P.animTime+=dt;
+        const t=THREE.MathUtils.smoothstep(THREE.MathUtils.clamp(P.animTime/.12,0,1),0,1);
+        applyCharacterTilt(THREE.MathUtils.lerp(P.animStartTilt,-10,t),THREE.MathUtils.lerp(P.animStartPivot,0,t));
+        if(P.animTime>=.12) P.animPhase='rise';
+      } else if(P.animPhase==='rise'){
+        applyCharacterTilt(-10,0);
+        if(P.vel.y<=0){ P.animPhase='fall'; P.animTime=0; }
+      } else if(P.animPhase==='fall'){
+        const f=THREE.MathUtils.clamp((-P.vel.y)/P.animLaunchVy,0,1);
+        if(f<.34){
+          const u=THREE.MathUtils.smoothstep(f/.34,0,1);
+          applyCharacterTilt(THREE.MathUtils.lerp(-10,0,u),H*u);
+        } else {
+          const u=THREE.MathUtils.smoothstep((f-.34)/.66,0,1);
+          applyCharacterTilt(THREE.MathUtils.lerp(0,20,u),H);
+        }
+      } else if(P.animPhase==='land'){
+        P.animTime+=dt;
+        const t=THREE.MathUtils.smoothstep(THREE.MathUtils.clamp(P.animTime/.12,0,1),0,1);
+        applyCharacterTilt(THREE.MathUtils.lerp(P.animStartTilt,-10,t),THREE.MathUtils.lerp(P.animStartPivot,0,t));
+        if(P.animTime>=.12){ P.animPhase='settle'; P.animTime=0; }
+      } else if(P.animPhase==='settle'){
+        P.animTime+=dt;
+        const t=THREE.MathUtils.smoothstep(THREE.MathUtils.clamp(P.animTime/.16,0,1),0,1);
+        applyCharacterTilt(THREE.MathUtils.lerp(-10,0,t),0);
+        if(P.animTime>=.16){ P.animPhase='idle'; applyCharacterTilt(0,0); }
+      } else if(P.grounded){
+        applyCharacterTilt(0,0);
+      }
+    }
+
     function tryBigJump(){
       // El salto grande puede interrumpir inmediatamente un saltito automatico.
       // Solo se permite uno hasta volver a tocar una superficie.
@@ -740,6 +802,7 @@
       P.vel.y=4.03;
       P.vel.x=dir.x*3.0; P.vel.z=dir.z*3.0;
       P.grounded=false; P.bigJumpUsed=true; P.squash=1;
+      beginJumpTilt(4.03);
     }
 
     function supportAt(x,z){
@@ -856,6 +919,8 @@
     function respawn(){
       P.dead=false; P.pos.copy(P.spawn); P.vel.set(0,0,0); P.grounded=true; P.autoHopTimer=0; P.bigJumpUsed=false; P.squash=.4;
       P.deathSinkVy=0; P.deathSmokeTimer=0;
+      P.animPhase='idle'; P.animTime=0; P.tiltDeg=0; P.tiltPivotY=0;
+      applyCharacterTilt(0,0);
       setSoquetinBurn(0);
       clearDeathSmoke();
     }
@@ -901,6 +966,7 @@
           P.vel.x=dir.x*hopSpeed;
           P.vel.z=dir.z*hopSpeed;
           P.grounded=false; P.autoHopTimer=0; P.squash=.52;
+          beginJumpTilt(2.35);
         }
       } else if(hasInput) {
         // Control direccional inmediato en el aire.
@@ -926,7 +992,10 @@
 
       const support=supportAt(P.pos.x,P.pos.z);
       if(support && P.vel.y<=0 && P.pos.y<=support.y+.16 && P.pos.y>=support.y-.42){
-        if(!P.grounded && P.vel.y<-1.2) P.squash=.38;
+        if(!P.grounded && P.vel.y<-1.2){
+          P.squash=.38;
+          beginLandingTilt();
+        }
         P.pos.y=support.y+.02; P.vel.y=0; P.grounded=true;
       } else if(!support || P.pos.y>0.18) {
         P.grounded=false;
@@ -942,6 +1011,7 @@
         sy=1-.25*q; sxz=1+.12*q;
       } else if(!P.grounded && P.vel.y>1.2){ sy=1.09; sxz=.955; }
       visualRoot.scale.set(sxz,sy,sxz);
+      updateJumpTilt(dt);
       playerRoot.position.copy(P.pos); playerRoot.rotation.y=P.yaw;
       updateCharacterShadowLight();
     }
