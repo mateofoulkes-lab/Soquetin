@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="theme-color" content="#11100d" />
-  <title>Recuperador de password de Soquetin</title>
+  <title>El Enigma de Soquetin</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -56,21 +56,23 @@
     }
     #landscape .box { max-width:420px; }
     #landscape strong { display:block; font-size:24px; margin-bottom:10px; }
-    #startOverlay {
-      position:fixed; inset:0; z-index:20; background:radial-gradient(circle at 50% 42%, #2e2920 0, #14110d 48%, #070605 100%);
-      display:grid; place-items:center; padding:24px;
+    #splash {
+      position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:24px;
+      background:#050504; opacity:1; transition:opacity .32s ease; pointer-events:auto;
     }
-    #startCard {
-      width:min(520px,92vw); padding:26px; border:1px solid rgba(255,255,255,.14);
-      border-radius:18px; background:rgba(15,13,10,.78); box-shadow:0 24px 80px rgba(0,0,0,.48);
+    #splash.fade-out { opacity:0; }
+    #splashCard { width:min(430px,84vw); text-align:center; }
+    #splashTitle { font-weight:850; font-size:clamp(24px,5vw,38px); letter-spacing:.015em; margin-bottom:20px; }
+    #loadTrack { width:100%; height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.12); }
+    #loadBar { width:0%; height:100%; background:#e8dfc7; transition:width .12s linear; }
+    #loadText { margin-top:9px; font:600 11px ui-monospace,monospace; opacity:.62; }
+    #blackFade { position:fixed; inset:0; z-index:119; background:#000; opacity:0; pointer-events:none; transition:opacity .22s ease; }
+    #blackFade.on { opacity:1; }
+    #buildInfo {
+      position:fixed; left:10px; bottom:9px; z-index:55; padding:6px 8px; border-radius:7px;
+      background:rgba(0,0,0,.42); border:1px solid rgba(255,255,255,.10); color:rgba(255,255,255,.72);
+      font:600 10px/1.25 ui-monospace,monospace; pointer-events:none; backdrop-filter:blur(4px);
     }
-    #startCard h1 { margin:0 0 10px; font-size:clamp(25px,4vw,38px); }
-    #startCard p { margin:8px 0 18px; color:#d6d0c4; line-height:1.45; }
-    #startBtn {
-      appearance:none; border:0; border-radius:12px; padding:13px 18px; width:100%;
-      font-weight:800; font-size:16px; cursor:pointer; background:#ded0a7; color:#201b13;
-    }
-    #status { margin-top:12px; font-size:12px; opacity:.65; text-align:center; }
     @media (pointer:coarse) {
       #mobileControls { display:block; }
       #help { display:none; }
@@ -91,19 +93,20 @@
   </script>
 </head>
 <body>
-  <div id="startOverlay">
-    <div id="startCard">
-      <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.18: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
-      <button id="startBtn">ENTRAR AL DUNGEON</button>
-      <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
+  <div id="splash">
+    <div id="splashCard">
+      <div id="splashTitle">El Enigma de Soquetin</div>
+      <div id="loadTrack"><div id="loadBar"></div></div>
+      <div id="loadText">CARGANDO · 0%</div>
     </div>
   </div>
+  <div id="blackFade"></div>
+  <div id="buildInfo">V1.19 · splash + nombre nuevo</div>
 
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.18</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="modelStatus" style="display:none;position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -716,7 +719,7 @@
     });
     addEventListener('keyup',e=>keys[e.code]=false);
     renderer.domElement.addEventListener('click',()=> {
-      if(matchMedia('(pointer:fine)').matches && !posterOverlayOpen && document.getElementById('startOverlay').style.display==='none')
+      if(matchMedia('(pointer:fine)').matches && !posterOverlayOpen)
         renderer.domElement.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
@@ -1210,13 +1213,41 @@
     }
 
     // ------------------------------------------------------------
-    // START
+    // SPLASH / PRELOAD
     // ------------------------------------------------------------
-    document.getElementById('startBtn').addEventListener('click',()=>{
-      ensureAudio(); welcome();
-      document.getElementById('startOverlay').style.display='none';
-      if(matchMedia('(pointer:fine)').matches) setTimeout(()=>renderer.domElement.requestPointerLock?.(),80);
-    });
+    let gameReady=false;
+    const splash=document.getElementById('splash');
+    const blackFade=document.getElementById('blackFade');
+    const loadBar=document.getElementById('loadBar');
+    const loadText=document.getElementById('loadText');
+    const preloadAssets=[SOQUETIN_MODEL_URL,'1000142570.jpg'];
+    async function preloadGame(){
+      let done=0;
+      const setProgress=()=>{
+        const pct=Math.round((done/preloadAssets.length)*100);
+        loadBar.style.width=pct+'%'; loadText.textContent=`CARGANDO · ${pct}%`;
+      };
+      await Promise.all(preloadAssets.map(async url=>{
+        try{
+          const r=await fetch(url,{cache:'force-cache'});
+          if(!r.ok) throw new Error(String(r.status));
+          await r.blob();
+        }catch(err){ console.warn('Preload warning',url,err); }
+        done++; setProgress();
+      }));
+      loadBar.style.width='100%'; loadText.textContent='CARGANDO · 100%';
+      await new Promise(r=>setTimeout(r,120));
+      blackFade.classList.add('on');
+      await new Promise(r=>setTimeout(r,220));
+      splash.classList.add('fade-out');
+      await new Promise(r=>setTimeout(r,320));
+      splash.remove();
+      await new Promise(r=>setTimeout(r,90));
+      blackFade.classList.remove('on');
+      setTimeout(()=>blackFade.remove(),260);
+      gameReady=true;
+    }
+    preloadGame();
 
     // Keep browser page from scrolling/zooming on game touches
     document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
@@ -1230,7 +1261,7 @@
     function animate(){
       requestAnimationFrame(animate);
       let dt=Math.min(.033,clock.getDelta());
-      updatePlayer(dt);
+      if(gameReady) updatePlayer(dt);
       updateBreakTiles(dt);
       updateLava(dt);
       updateDeathSmoke(dt);
