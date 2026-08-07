@@ -1,0 +1,21 @@
+name: Apply GLB loader fix
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-glb-loader-fix.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch loader
+        run: python3 patch_glb_loader.py
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix provisional Soquetin GLB loading" || exit 0
+          git push
