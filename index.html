@@ -131,7 +131,7 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.32;
     document.body.prepend(renderer.domElement);
 
     const clock = new THREE.Clock();
@@ -197,7 +197,8 @@
     const wallMat = new THREE.MeshStandardMaterial({map:texWall, roughness:.96, metalness:0});
     const floorMat = new THREE.MeshStandardMaterial({map:texFloor, roughness:.95});
     const ceilMat = new THREE.MeshStandardMaterial({map:texCeil, roughness:1});
-    const darkSideMat = new THREE.MeshStandardMaterial({color:0x302c25,roughness:1});
+    const darkSideMat = new THREE.MeshStandardMaterial({color:0x3a342b,roughness:1});
+    const columnTopMat = new THREE.MeshStandardMaterial({map:texFloor,color:0xeadfbd,roughness:.82,emissive:0x2b2110,emissiveIntensity:.18});
 
     // ------------------------------------------------------------
     // COLLISION / LEVEL HELPERS
@@ -247,22 +248,22 @@
     // ------------------------------------------------------------
     // MAP DIMENSIONS
     // ------------------------------------------------------------
-    const OUT_L=-9.3, OUT_R=9.3;
-    const Z_START_FRONT=8.0;
-    const Z_CHALLENGE_SOUTH=1.2;
+    const OUT_L=-10.5, OUT_R=10.5;
+    const Z_START_FRONT=11.0;
+    const Z_CHALLENGE_SOUTH=3.0;
     const Z_PIT_SOUTH=0.0;
     const Z_PIT_NORTH=-6.0;
-    const Z_CHALLENGE_NORTH=-7.2;
-    const Z_COMMON_NORTH=-12.8;
-    const Z_FINAL_NORTH=-19.0;
-    const ROOM_CENTERS=[-6.2,0,6.2];
-    const ROOM_W=6.2;
-    const FINAL_W=6.2;
+    const Z_CHALLENGE_NORTH=-9.0;
+    const Z_COMMON_NORTH=-16.0;
+    const Z_FINAL_NORTH=-24.0;
+    const ROOM_CENTERS=[-7.0,0,7.0];
+    const ROOM_W=7.0;
+    const FINAL_W=7.5;
     const OPEN_W=1.2;
     const H=5, T=.3;
 
     // Solid floors outside the three pits. The challenge rooms deliberately
-    // keep a 1.2 m "vereda" before and after each jumping zone.
+    // keep a 3 m "vereda" before and after each jumping zone.
     addFloorRect(0, (Z_START_FRONT+Z_CHALLENGE_SOUTH)/2, OUT_R-OUT_L-.3, Z_START_FRONT-Z_CHALLENGE_SOUTH-.3, 0);
     addFloorRect(0, (Z_CHALLENGE_NORTH+Z_COMMON_NORTH)/2, OUT_R-OUT_L-.3, Math.abs(Z_COMMON_NORTH-Z_CHALLENGE_NORTH)-.3, 0);
     addFloorRect(0, (Z_COMMON_NORTH+Z_FINAL_NORTH)/2, FINAL_W-.3, Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH)-.3, 0);
@@ -281,7 +282,7 @@
     buildWallWithOpeningsHorizontal(Z_CHALLENGE_NORTH, OUT_L, OUT_R, ROOM_CENTERS, OPEN_W,T,H);
 
     // Dividers between challenge rooms only
-    for(const x of [-3.1,3.1]) wallSegment(x,(Z_CHALLENGE_SOUTH+Z_CHALLENGE_NORTH)/2,T,Z_CHALLENGE_SOUTH-Z_CHALLENGE_NORTH,H);
+    for(const x of [-3.5,3.5]) wallSegment(x,(Z_CHALLENGE_SOUTH+Z_CHALLENGE_NORTH)/2,T,Z_CHALLENGE_SOUTH-Z_CHALLENGE_NORTH,H);
 
     // Common north wall with one final opening
     buildWallWithOpeningHorizontal(Z_COMMON_NORTH, OUT_L, OUT_R, 0, OPEN_W,T,H);
@@ -301,7 +302,7 @@
     const lavaMat = new THREE.MeshStandardMaterial({
       color:0xff5b15, emissive:0xff2600, emissiveIntensity:1.6, roughness:.55
     });
-    const lava = new THREE.Mesh(new THREE.PlaneGeometry(18.6,6.4,1,1),lavaMat);
+    const lava = new THREE.Mesh(new THREE.PlaneGeometry(21.0,6.4,1,1),lavaMat);
     lava.rotation.x=-Math.PI/2; lava.position.set(0,-10,-3); scene.add(lava);
     const lavaGlow = new THREE.PointLight(0xff3b0a,45,22,2); lavaGlow.position.set(0,-7,-3); scene.add(lavaGlow);
 
@@ -363,8 +364,8 @@
         if(!safe.has(`${r},${c}`)) continue;
         const x=cx-2+c, z=-5.5+r;
         const h=10;
-        const mesh=boxMesh(`column-${r}-${c}`,x,-5,z,.98,h,.98,darkSideMat,false,true);
-        mesh.material = new THREE.MeshStandardMaterial({map:texFloor,roughness:.95});
+        const columnMats=[darkSideMat,darkSideMat,columnTopMat,darkSideMat,darkSideMat,darkSideMat];
+        const mesh=boxMesh(`column-${r}-${c}`,x,-5,z,.98,h,.98,columnMats,false,true);
         supportRects.push({minX:x-.49,maxX:x+.49,minZ:z-.49,maxZ:z+.49,y:0,type:'column'});
       }
     }
@@ -390,10 +391,10 @@
       if(faceNorth) p.rotation.y=Math.PI;
       scene.add(p); return p;
     }
-    posterOnHorizontalWall(-3.4,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 01',false);
-    posterOnHorizontalWall(3.4,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 02',false);
+    posterOnHorizontalWall(-3.9,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 01',false);
+    posterOnHorizontalWall(3.9,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 02',false);
     posterOnHorizontalWall(0,2.15,Z_START_FRONT-.001,2.5,1.45,'IMAGEN 03',true);
-    posterOnHorizontalWall(-2.45,2.0,Z_COMMON_NORTH+.001,1.5,1.15,'PISTA',false);
+    posterOnHorizontalWall(-2.8,2.0,Z_COMMON_NORTH+.001,1.5,1.15,'PISTA',false);
 
     // Instagram clue on the right lateral wall of final corridor
     const instaMat=new THREE.MeshStandardMaterial({map:posterTexture('INSTAGRAM','PISTA FINAL'),roughness:.65});
@@ -403,14 +404,14 @@
     // ------------------------------------------------------------
     // LIGHTING
     // ------------------------------------------------------------
-    scene.add(new THREE.HemisphereLight(0xc6ad82,0x20140d,1.12));
-    const warm = [ [-6.2,4.15,4.6], [0,4.15,4.6], [6.2,4.15,4.6], [-6.2,4.15,-3], [0,4.15,-3], [6.2,4.15,-3], [-6.2,4.15,-9.8], [0,4.15,-9.8], [6.2,4.15,-9.8], [0,4.15,-15.9] ];
+    scene.add(new THREE.HemisphereLight(0xd8c49c,0x2b1b10,1.5));
+    const warm = [ [-7,4.15,7], [0,4.15,7], [7,4.15,7], [-7,4.15,-3], [0,4.15,-3], [7,4.15,-3], [-7,4.15,-12.5], [0,4.15,-12.5], [7,4.15,-12.5], [0,4.15,-20] ];
     const dungeonLights=[];
     for(let i=0;i<warm.length;i++){
       const [x,y,z]=warm[i];
-      const l=new THREE.PointLight(0xffb45d,8.6,9.5,2);
+      const l=new THREE.PointLight(0xffbb68,11.5,12.5,2);
       l.position.set(x,y,z); l.castShadow=false; scene.add(l);
-      dungeonLights.push({light:l, base:8.6, phase:Math.random()*Math.PI*2, speed:.75+Math.random()*.55});
+      dungeonLights.push({light:l, base:11.5, phase:Math.random()*Math.PI*2, speed:.75+Math.random()*.55});
     }
 
     // ------------------------------------------------------------
@@ -427,11 +428,11 @@
     }
 
     const P={
-      pos:new THREE.Vector3(0,.02,5.8), vel:new THREE.Vector3(),
+      pos:new THREE.Vector3(0,.02,8.2), vel:new THREE.Vector3(),
       yaw:Math.PI, camYaw:Math.PI, camPitch:.24,
       radius:.22, height:1.12, grounded:true,
       autoHopTimer:0, squash:0, dead:false, respawnTimer:0,
-      spawn:new THREE.Vector3(0,.02,5.8)
+      spawn:new THREE.Vector3(0,.02,8.2), bigJumpUsed:false
     };
 
     // ------------------------------------------------------------
@@ -518,13 +519,15 @@
     }
 
     function tryBigJump(){
-      if(P.dead || !P.grounded) return;
+      // El salto grande puede interrumpir inmediatamente un saltito automatico.
+      // Solo se permite uno hasta volver a tocar una superficie.
+      if(P.dead || P.bigJumpUsed) return;
       const dir=inputVector();
       if(dir.lengthSq()<.01) dir.set(-Math.sin(P.camYaw),0,-Math.cos(P.camYaw));
       dir.normalize();
-      P.vel.y=5.7;
-      P.vel.x=dir.x*3.75; P.vel.z=dir.z*3.75;
-      P.grounded=false; P.squash=1;
+      P.vel.y=5.9;
+      P.vel.x=dir.x*4.0; P.vel.z=dir.z*4.0;
+      P.grounded=false; P.bigJumpUsed=true; P.squash=1;
     }
 
     function supportAt(x,z){
@@ -572,7 +575,7 @@
       const el=document.getElementById('respawn'); el.style.opacity='1';
     }
     function respawn(){
-      P.dead=false; P.pos.copy(P.spawn); P.vel.set(0,0,0); P.grounded=true; P.autoHopTimer=0; P.squash=.4;
+      P.dead=false; P.pos.copy(P.spawn); P.vel.set(0,0,0); P.grounded=true; P.autoHopTimer=0; P.bigJumpUsed=false; P.squash=.4;
       document.getElementById('respawn').style.opacity='0';
     }
 
@@ -589,25 +592,30 @@
       const dir=inputVector();
       const hasInput=dir.lengthSq()>.025;
 
-      // automatic "Worms-like" little hops while moving
+      // Movimiento a saltitos: al soltar la direccion NO hay inercia ni patinaje.
+      // Mientras se mantiene una direccion, los saltitos se encadenan al aterrizar.
+      if(!hasInput){
+        P.vel.x=0; P.vel.z=0;
+      }
+
       if(P.grounded){
+        P.bigJumpUsed=false;
         P.autoHopTimer-=dt;
         if(hasInput && P.autoHopTimer<=0){
           dir.normalize();
           P.vel.y=2.35;
-          const hopSpeed=2.75;
-          P.vel.x=THREE.MathUtils.lerp(P.vel.x,dir.x*hopSpeed,.72);
-          P.vel.z=THREE.MathUtils.lerp(P.vel.z,dir.z*hopSpeed,.72);
+          const hopSpeed=2.9;
+          P.vel.x=dir.x*hopSpeed;
+          P.vel.z=dir.z*hopSpeed;
           P.grounded=false; P.autoHopTimer=0; P.squash=.52;
-        } else if(!hasInput) {
-          P.vel.x*=Math.pow(.32,dt); P.vel.z*=Math.pow(.32,dt);
         }
       } else if(hasInput) {
-        // directional control in air
+        // Control direccional inmediato en el aire.
         dir.normalize();
-        const air=5.6*dt;
-        P.vel.x=THREE.MathUtils.lerp(P.vel.x,dir.x*3.25,Math.min(1,air*.72));
-        P.vel.z=THREE.MathUtils.lerp(P.vel.z,dir.z*3.25,Math.min(1,air*.72));
+        const targetSpeed=P.bigJumpUsed?4.0:3.25;
+        const air=Math.min(1,7.0*dt);
+        P.vel.x=THREE.MathUtils.lerp(P.vel.x,dir.x*targetSpeed,air);
+        P.vel.z=THREE.MathUtils.lerp(P.vel.z,dir.z*targetSpeed,air);
       }
 
       // face motion direction
