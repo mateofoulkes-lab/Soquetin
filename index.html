@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.6: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.7: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.6</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.7</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="respawn">🔥</div>
@@ -518,12 +518,35 @@
     for(let i=0;i<warm.length;i++){
       const [x,y,z]=warm[i];
       const l=new THREE.PointLight(0xffbd6c,12.5,13.0,2);
-      l.position.set(x,y,z); l.castShadow=false; scene.add(l);
+      l.position.set(x,y,z);
+      l.castShadow=false;
+      l.shadow.mapSize.set(384,384);
+      l.shadow.camera.near=.15;
+      l.shadow.camera.far=14;
+      l.shadow.bias=-0.0025;
+      l.shadow.normalBias=.025;
+      scene.add(l);
       dungeonLights.push({light:l, base:12.5, phase:Math.random()*Math.PI*2, speed:.75+Math.random()*.55});
     }
 
     // Apply exported UV/repeat settings after all dungeon geometry is built.
     applyHardcodedTextureOverrides();
+
+    let activeShadowLight=-1;
+    function updateCharacterShadowLight(){
+      if(!dungeonLights.length || typeof P==='undefined') return;
+      let best=-1, bestD=Infinity;
+      for(let i=0;i<dungeonLights.length;i++){
+        const lp=dungeonLights[i].light.position;
+        const dx=lp.x-P.pos.x, dz=lp.z-P.pos.z;
+        const d=dx*dx+dz*dz;
+        if(d<bestD){ bestD=d; best=i; }
+      }
+      if(best===activeShadowLight) return;
+      if(activeShadowLight>=0) dungeonLights[activeShadowLight].light.castShadow=false;
+      activeShadowLight=best;
+      if(activeShadowLight>=0) dungeonLights[activeShadowLight].light.castShadow=true;
+    }
 
     // ------------------------------------------------------------
     // PLAYER
@@ -533,13 +556,6 @@
     // This lets squash/stretch deform the model without changing the collider.
     const visualRoot=new THREE.Group(); playerRoot.add(visualRoot);
 
-    // Character-only fill light: layer 1 is enabled on the camera/model,
-    // while dungeon geometry remains only on layer 0.
-    camera.layers.enable(1);
-    const playerFillLight=new THREE.PointLight(0xffe0b0,3.2,4.0,2);
-    playerFillLight.position.set(0,1.25,-1.15);
-    playerFillLight.layers.set(1);
-    playerRoot.add(playerFillLight);
 
     // Simple fallback while the GLB loads (or if it ever fails).
     const body=new THREE.Mesh(new THREE.BoxGeometry(.44,1.12,.44),new THREE.MeshStandardMaterial({color:0xe2d2a2,roughness:.72}));
@@ -587,8 +603,23 @@
       model.traverse(obj=>{
         if(obj.isMesh){
           obj.castShadow=true;
-          obj.receiveShadow=true;
-          obj.layers.enable(1);
+          obj.receiveShadow=false;
+
+          // Brighten only Soquetin itself. This does NOT emit light into the scene.
+          // Clone materials so the GLB remains isolated from any shared material state.
+          const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+          const adjusted=mats.map(mat=>{
+            if(!mat) return mat;
+            const m=mat.clone();
+            if('emissive' in m){
+              m.emissive = new THREE.Color(0x2a2118);
+              m.emissiveIntensity = 0.38;
+            }
+            if('roughness' in m && Number.isFinite(m.roughness)) m.roughness=Math.min(1,m.roughness+.05);
+            m.needsUpdate=true;
+            return m;
+          });
+          obj.material=Array.isArray(obj.material)?adjusted:adjusted[0];
         }
       });
 
@@ -827,6 +858,7 @@
       } else if(!P.grounded && P.vel.y>1.2){ sy=1.09; sxz=.955; }
       visualRoot.scale.set(sxz,sy,sxz);
       playerRoot.position.copy(P.pos); playerRoot.rotation.y=P.yaw;
+      updateCharacterShadowLight();
     }
 
     // ------------------------------------------------------------
