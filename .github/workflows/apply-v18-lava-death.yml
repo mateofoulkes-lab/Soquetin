@@ -1,0 +1,24 @@
+name: Apply V1.8 lava death
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v18-lava-death.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game
+        run: python3 patch_v18_lava_death.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add lava sink, char and smoke death effect (V1.8)" || exit 0
+          git push
