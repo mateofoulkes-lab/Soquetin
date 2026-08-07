@@ -1,0 +1,30 @@
+{
+  "magic": "glTF",
+  "version": 2,
+  "declaredLength": 4387552,
+  "actualLength": 4387552,
+  "asset": {
+    "version": "2.0",
+    "generator": "https://github.com/mikedh/trimesh"
+  },
+  "extensionsUsed": [],
+  "extensionsRequired": [],
+  "images": [
+    {
+      "mimeType": "image/png"
+    }
+  ],
+  "meshes": 1,
+  "nodes": 2,
+  "materials": 1,
+  "chunks": [
+    {
+      "type": "0x4e4f534a",
+      "length": 1424
+    },
+    {
+      "type": "0x4e4942",
+      "length": 4386100
+    }
+  ]
+}
