@@ -28,7 +28,6 @@
       font-size:28px; font-weight:800; background:rgba(0,0,0,.0);
       opacity:0; transition:opacity .12s; text-shadow:0 3px 15px #000;
     }
-    #crosshair { position:absolute; left:50%; top:50%; width:5px; height:5px; margin:-2px; border-radius:50%; background:rgba(255,255,255,.55); }
     #mobileControls { display:none; position:fixed; inset:0; pointer-events:none; z-index:6; }
     body.poster-open #mobileControls { z-index:80; }
     .stickZone { position:absolute; bottom:30px; width:44vw; height:42vh; pointer-events:auto; touch-action:none; }
@@ -76,7 +75,6 @@
     @media (pointer:coarse) {
       #mobileControls { display:block; }
       #help { display:none; }
-      #crosshair { display:none; }
       #title { font-size:11px; left:10px; top:10px; }
     }
     @media (orientation:portrait) and (pointer:coarse) {
@@ -101,14 +99,13 @@
     </div>
   </div>
   <div id="blackFade"></div>
-  <div id="buildInfo">V1.20 · ajuste UV en superficies equivalentes</div>
+  <div id="buildInfo">V1.21 · interacción de afiches simplificada</div>
 
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
     <div id="modelStatus" style="display:none;position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
-    <div id="crosshair"></div>
     <div id="mobileControls">
       <div id="leftZone" class="stickZone"><div id="leftBase" class="stickBase"><div class="stickKnob"></div></div></div>
       <div id="rightZone" class="stickZone"><div id="rightBase" class="stickBase"><div class="stickKnob"></div></div></div>
@@ -117,7 +114,7 @@
     </div>
   </div>
 
-  <div id="posterPrompt" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:18;display:none;padding:10px 16px;border-radius:10px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);color:#fff;font:700 14px Inter,system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(5px);white-space:nowrap">Toca la imagen o presiona F para ampliar...</div>
+  <div id="posterPrompt" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:58;display:none;padding:10px 16px;border-radius:14px;background:rgba(105,105,105,.46);border:1px solid rgba(255,255,255,.26);color:#fff;font:700 14px Inter,system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap;user-select:none">Pulsa F para ampliar</div>
   <div id="posterOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.91);cursor:zoom-out">
     <img id="posterOverlayImg" alt="Cartel ampliado" style="display:block;max-width:94vw;max-height:92vh;object-fit:contain;box-shadow:0 24px 90px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.16)">
     <div style="position:absolute;right:18px;top:15px;color:#fff;font:600 12px Inter,system-ui,sans-serif;opacity:.72">F / ESC / toque para cerrar</div>
@@ -779,7 +776,7 @@
     posterOverlay.addEventListener('pointerdown',e=>{e.preventDefault();closePoster();});
 
     addEventListener('keydown',e=>{
-      if(e.code==='KeyF'){
+      if(e.code==='KeyF' && !isMobileUI){
         e.preventDefault();
         if(posterOverlayOpen) closePoster(); else if(nearbyPoster) openPoster(nearbyPoster);
         return;
@@ -809,44 +806,19 @@
       return posterFrontNormal.dot(posterToCamera)>0.02;
     }
 
-    // Screen-space poster hit testing: robust on mobile and independent from 3D raycasts.
-    function pointerInsidePoster(poster,clientX,clientY){
-      poster.updateWorldMatrix(true,false);
-      const r=renderer.domElement.getBoundingClientRect();
-      const w=poster.geometry.parameters.width, h=poster.geometry.parameters.height;
-      const corners=[
-        new THREE.Vector3(-w/2,-h/2,0), new THREE.Vector3(w/2,-h/2,0),
-        new THREE.Vector3(w/2,h/2,0), new THREE.Vector3(-w/2,h/2,0)
-      ];
-      let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-      for(const c of corners){
-        c.applyMatrix4(poster.matrixWorld).project(camera);
-        const x=r.left+(c.x*.5+.5)*r.width;
-        const y=r.top+(-c.y*.5+.5)*r.height;
-        minX=Math.min(minX,x); maxX=Math.max(maxX,x);
-        minY=Math.min(minY,y); maxY=Math.max(maxY,y);
-      }
-      const pad=18;
-      return clientX>=minX-pad && clientX<=maxX+pad && clientY>=minY-pad && clientY<=maxY+pad;
-    }
-    document.addEventListener('pointerdown',e=>{
-      if(posterOverlayOpen || P.dead)return;
-      let hitPoster=null, bestD=Infinity;
-      for(const poster of posters){
-        const dx=poster.position.x-P.pos.x;
-        const dy=poster.position.y-(P.pos.y+.65);
-        const dz=poster.position.z-P.pos.z;
-        const d=dx*dx+dy*dy+dz*dz;
-        if(d<=20.25 && d<bestD && isPosterFrontFacing(poster) && pointerInsidePoster(poster,e.clientX,e.clientY)){
-          hitPoster=poster; bestD=d;
-        }
-      }
-      if(hitPoster){
+    const isMobileUI=matchMedia('(pointer:coarse)').matches;
+    posterPrompt.textContent=isMobileUI?'Pulsa aquí para ampliar':'Pulsa F para ampliar';
+    if(isMobileUI){
+      posterPrompt.style.pointerEvents='auto';
+      posterPrompt.style.cursor='pointer';
+      posterPrompt.addEventListener('pointerdown',e=>{
+        if(!nearbyPoster || posterOverlayOpen || P.dead)return;
         e.preventDefault();
-        e.stopImmediatePropagation();
-        openPoster(hitPoster);
-      }
-    },true);
+        e.stopPropagation();
+        openPoster(nearbyPoster);
+      });
+    }
+
     document.addEventListener('mousemove',e=>{
       if(!mouseLocked) return;
       P.camYaw -= e.movementX*.0025;
@@ -1222,9 +1194,10 @@
         const dy=poster.position.y-(P.pos.y+.65);
         const dz=poster.position.z-P.pos.z;
         const d=dx*dx+dy*dy+dz*dz;
-        if(d<bestD){bestD=d;best=poster;}
+        if(isPosterFrontFacing(poster) && d<bestD){bestD=d;best=poster;}
       }
       nearbyPoster=(best && bestD<20.25) ? best : null; // about 4.5 m
+      posterPrompt.textContent=isMobileUI?'Pulsa aquí para ampliar':'Pulsa F para ampliar';
       posterPrompt.style.display=nearbyPoster?'block':'none';
     }
 
