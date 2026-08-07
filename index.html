@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.13: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.14: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.13</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.14</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -521,7 +521,7 @@
     posterOnHorizontalWall(-3.9,2.0,Z_CHALLENGE_SOUTH+.001,3.225,1.875,'IMAGEN 01',false,false);
     posterOnHorizontalWall(3.9,2.0,Z_CHALLENGE_SOUTH+.001,3.225,1.875,'IMAGEN 02',false,false);
     // Poster 03 uses the movement artwork. 3.75 / 2.175 matches its 1647:955 aspect ratio.
-    posterOnHorizontalWall(0,2.15,Z_START_FRONT-.001,3.75,2.175,'poster03-protocolo.jpg',true,true);
+    posterOnHorizontalWall(0,2.15,Z_START_FRONT-.001,3.75,2.175,'poster03-protocolo-v2.jpg',true,true);
     posterOnHorizontalWall(-2.8,2.0,Z_COMMON_NORTH+.001,2.25,1.725,'PISTA',false,false);
     posterOnRightWall(FINAL_RIGHT,2.15,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,3.30,2.175,'INSTAGRAM',false);
 
@@ -717,18 +717,32 @@
         renderer.domElement.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
-    // Capture poster taps BEFORE the mobile joystick zones can consume them.
+    // Screen-space poster hit testing: robust on mobile and independent from 3D raycasts.
+    function pointerInsidePoster(poster,clientX,clientY){
+      poster.updateWorldMatrix(true,false);
+      const r=renderer.domElement.getBoundingClientRect();
+      const w=poster.geometry.parameters.width, h=poster.geometry.parameters.height;
+      const corners=[
+        new THREE.Vector3(-w/2,-h/2,0), new THREE.Vector3(w/2,-h/2,0),
+        new THREE.Vector3(w/2,h/2,0), new THREE.Vector3(-w/2,h/2,0)
+      ];
+      let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+      for(const c of corners){
+        c.applyMatrix4(poster.matrixWorld).project(camera);
+        const x=r.left+(c.x*.5+.5)*r.width;
+        const y=r.top+(-c.y*.5+.5)*r.height;
+        minX=Math.min(minX,x); maxX=Math.max(maxX,x);
+        minY=Math.min(minY,y); maxY=Math.max(maxY,y);
+      }
+      const pad=18;
+      return clientX>=minX-pad && clientX<=maxX+pad && clientY>=minY-pad && clientY<=maxY+pad;
+    }
     document.addEventListener('pointerdown',e=>{
       if(posterOverlayOpen || !nearbyPoster)return;
-      const r=renderer.domElement.getBoundingClientRect();
-      if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom)return;
-      const ndc=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
-      raycaster.setFromCamera(ndc,camera);
-      const hit=raycaster.intersectObjects(posters,false)[0];
-      if(hit && hit.object===nearbyPoster){
+      if(pointerInsidePoster(nearbyPoster,e.clientX,e.clientY)){
         e.preventDefault();
         e.stopPropagation();
-        openPoster(hit.object);
+        openPoster(nearbyPoster);
       }
     },true);
     document.addEventListener('mousemove',e=>{
