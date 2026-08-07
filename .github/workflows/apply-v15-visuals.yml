@@ -1,0 +1,24 @@
+name: Apply V1.5 visuals
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v15-visuals.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game
+        run: python3 patch_v15_visuals.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Brighten dungeon and tune Soquetin scale and facing (V1.5)" || exit 0
+          git push
