@@ -1,0 +1,24 @@
+name: Patch final room and editor hook
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-finalroom-editor.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index
+        run: python3 patch_finalroom_editor.py
+      - name: Commit patched index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Extend final room and expose texture editor hook"
+          git push
