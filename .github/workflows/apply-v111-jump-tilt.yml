@@ -1,0 +1,24 @@
+name: Apply V1.11 jump tilt
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v111-jump-tilt.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game
+        run: python3 patch_v111_jump_tilt.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add pivoted jump rocking animation (V1.11)" || exit 0
+          git push
