@@ -15,6 +15,8 @@
   .selected{padding:10px;border:1px solid #ffffff18;background:#0004;border-radius:8px;font:12px ui-monospace,monospace;overflow-wrap:anywhere;white-space:pre-wrap;margin-bottom:14px;min-height:54px}
   label{display:grid;grid-template-columns:88px 1fr 66px;gap:8px;align-items:center;font-size:12px;margin:10px 0}
   input[type=range]{width:100%} input[type=number]{width:66px;background:#100d0a;color:#fff;border:1px solid #ffffff20;border-radius:5px;padding:4px}
+  .checkrow{display:flex;align-items:center;gap:9px;padding:10px 11px;margin:8px 0 14px;border:1px solid #ffffff1f;border-radius:8px;background:#0003;font-size:12px;cursor:pointer}
+  .checkrow input{width:17px;height:17px;accent-color:#d8c395}
   button{width:100%;padding:10px;margin:5px 0;border:0;border-radius:8px;background:#d8c395;color:#21180d;font-weight:800;cursor:pointer}
   button.secondary{background:#3a3025;color:#eee;border:1px solid #ffffff1f}
   textarea{width:100%;height:180px;background:#0d0b09;color:#d7efc7;border:1px solid #ffffff1f;border-radius:8px;padding:9px;font:11px ui-monospace,monospace;resize:vertical}
@@ -36,6 +38,8 @@
     <p>Usá <b>V</b> para alternar entre <b>MIRAR</b> y <b>SELECCIONAR</b>. En modo seleccionar, hacé clic directamente sobre la cara que querés corregir. Los cambios se ven <b>en vivo</b>.</p>
     <div id="sel" class="selected">Ninguna superficie seleccionada.</div>
 
+    <label class="checkrow"><input id="wholeObject" type="checkbox"> Aplicar los cambios a <b>todo el objeto</b> en lugar de sólo esta cara</label>
+
     <label>Repeat U <input id="ru" type="range" min="0.1" max="30" step="0.05" value="1"><input id="run" type="number" min="0.1" max="30" step="0.05" value="1"></label>
     <label>Repeat V <input id="rv" type="range" min="0.1" max="30" step="0.05" value="1"><input id="rvn" type="number" min="0.1" max="30" step="0.05" value="1"></label>
     <label>Offset U <input id="ou" type="range" min="-10" max="10" step="0.01" value="0"><input id="oun" type="number" min="-10" max="10" step="0.01" value="0"></label>
@@ -43,10 +47,10 @@
     <label>Rotación <input id="rot" type="range" min="-180" max="180" step="1" value="0"><input id="rotn" type="number" min="-180" max="180" step="1" value="0"></label>
 
     <button id="toggleMode">CAMBIAR A SELECCIONAR (V)</button>
-    <button id="reset" class="secondary">Restaurar esta cara</button>
+    <button id="reset" class="secondary">Restaurar selección</button>
     <button id="copy">COPIAR CONFIGURACIÓN</button>
     <textarea id="out" readonly></textarea>
-    <div class="hint">Los ajustes se guardan en localStorage. Podés hacer varias superficies, cerrar el editor y continuar después. Cuando termines, copiame el bloque completo.</div>
+    <div class="hint">Los ajustes se guardan en localStorage. Si “todo el objeto” está activo, la configuración exportada queda marcada con <code>scope: "object"</code>.</div>
   </aside>
 </div>
 <script>
@@ -60,6 +64,7 @@ const saved=JSON.parse(localStorage.getItem('soquetinTextureOverrides')||'{}');
 function n(v,d=3){return Number(Number(v).toFixed(d))}
 function vecKey(v){return `${n(v.x)},${n(v.y)},${n(v.z)}`}
 function surfaceKey(mesh,face){return `${mesh.name||'mesh'}@${vecKey(mesh.position)}#face${face}`}
+function objectKey(mesh){return `${mesh.name||'mesh'}@${vecKey(mesh.position)}#object`}
 function updateOutput(){
   $('out').value='SOQUETIN_TEXTURE_OVERRIDES = '+JSON.stringify(saved,null,2);
   localStorage.setItem('soquetinTextureOverrides',JSON.stringify(saved));
@@ -81,31 +86,44 @@ function setMode(next){
 }
 function toggleMode(){setMode(mode==='look'?'select':'look')}
 
-function isolateMaterialForFace(mesh,materialIndex){
+function prepareMeshMaterials(mesh){
   const THREE=api.THREE;
   const groups=mesh.geometry?.groups||[];
   const maxIndex=Math.max(0,...groups.map(g=>g.materialIndex||0));
-
-  // BoxGeometry and other grouped meshes: one cloned material per material slot.
-  if(!Array.isArray(mesh.material) && maxIndex>0){
-    const base=mesh.material;
-    mesh.material=Array.from({length:maxIndex+1},()=>base.clone());
-  } else if(!Array.isArray(mesh.material)) {
-    // Single-material objects must also be cloned, otherwise editing one floor/wall
-    // could alter every other mesh that shares the original material.
-    mesh.material=mesh.material.clone();
+  if(!mesh.userData._editorMaterialsIsolated){
+    if(Array.isArray(mesh.material)){
+      mesh.material=mesh.material.map(m=>m?.clone?.()||m);
+    }else if(maxIndex>0){
+      const base=mesh.material;
+      mesh.material=Array.from({length:maxIndex+1},()=>base.clone());
+    }else if(mesh.material){
+      mesh.material=mesh.material.clone();
+    }
+    mesh.userData._editorMaterialsIsolated=true;
   }
-
-  let mat=Array.isArray(mesh.material)?mesh.material[materialIndex]||mesh.material[0]:mesh.material;
-  if(!mat || !mat.map) return null;
-
-  if(!mat.userData._editorTextureCloned){
-    mat.map=mat.map.clone();
-    mat.map.wrapS=mat.map.wrapT=THREE.RepeatWrapping;
-    mat.map.needsUpdate=true;
-    mat.userData._editorTextureCloned=true;
+  const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+  for(const mat of mats){
+    if(!mat?.map)continue;
+    if(!mat.userData._editorTextureCloned){
+      mat.map=mat.map.clone();
+      mat.map.wrapS=mat.map.wrapT=THREE.RepeatWrapping;
+      mat.map.needsUpdate=true;
+      mat.userData._editorTextureCloned=true;
+    }
   }
-  return mat;
+  return mats;
+}
+
+function isolateMaterialForFace(mesh,materialIndex){
+  const mats=prepareMeshMaterials(mesh);
+  const mat=mats[materialIndex]||mats[0];
+  return mat?.map?mat:null;
+}
+
+function targetMaterials(){
+  if(!selected)return[];
+  if($('wholeObject').checked) return prepareMeshMaterials(selected.mesh).filter(m=>m?.map);
+  return selected.mat?.map?[selected.mat]:[];
 }
 
 function pickAt(clientX,clientY){
@@ -131,108 +149,80 @@ function pickAt(clientX,clientY){
 
 function loadSelected(){
   if(!selected)return;
-  const {mesh,face,mat,key}=selected;
-  const tex=mat.map;
+  const whole=$('wholeObject').checked;
+  const key=whole?objectKey(selected.mesh):selected.key;
+  const tex=selected.mat.map;
   const existing=saved[key];
   if(existing){
-    tex.repeat.set(existing.repeatU,existing.repeatV);
-    tex.offset.set(existing.offsetU,existing.offsetV);
-    tex.center.set(.5,.5);
-    tex.rotation=existing.rotation*Math.PI/180;
-    tex.needsUpdate=true;
+    for(const mat of targetMaterials()){
+      mat.map.repeat.set(existing.repeatU,existing.repeatV);
+      mat.map.offset.set(existing.offsetU,existing.offsetV);
+      mat.map.center.set(.5,.5);
+      mat.map.rotation=existing.rotation*Math.PI/180;
+      mat.map.needsUpdate=true;
+    }
   }
-  const vals={ru:tex.repeat.x,rv:tex.repeat.y,ou:tex.offset.x,ov:tex.offset.y,rot:tex.rotation*180/Math.PI};
-  for(const k in vals){
-    controls[k].value=vals[k];
-    nums[k].value=n(vals[k],2);
-  }
-  $('sel').textContent=`${key}\nobjeto: ${mesh.name||'mesh'} · cara/material: ${face}`;
+  const sample=targetMaterials()[0]?.map||tex;
+  const vals={ru:sample.repeat.x,rv:sample.repeat.y,ou:sample.offset.x,ov:sample.offset.y,rot:sample.rotation*180/Math.PI};
+  for(const k in vals){controls[k].value=vals[k];nums[k].value=n(vals[k],2)}
+  $('sel').textContent=`${key}\nobjeto: ${selected.mesh.name||'mesh'} · ${whole?'TODO EL OBJETO':`cara/material: ${selected.face}`}`;
 }
 
-function currentValues(){
-  return {
-    repeatU:+controls.ru.value,
-    repeatV:+controls.rv.value,
-    offsetU:+controls.ou.value,
-    offsetV:+controls.ov.value,
-    rotation:+controls.rot.value
-  };
-}
+function currentValues(){return{repeatU:+controls.ru.value,repeatV:+controls.rv.value,offsetU:+controls.ou.value,offsetV:+controls.ov.value,rotation:+controls.rot.value}}
 function apply(){
   if(!selected)return;
   const v=currentValues();
-  const tex=selected.mat.map;
-  tex.wrapS=tex.wrapT=api.THREE.RepeatWrapping;
-  tex.repeat.set(v.repeatU,v.repeatV);
-  tex.offset.set(v.offsetU,v.offsetV);
-  tex.center.set(.5,.5);
-  tex.rotation=v.rotation*Math.PI/180;
-  tex.needsUpdate=true;
-  saved[selected.key]=v;
+  const whole=$('wholeObject').checked;
+  const mats=targetMaterials();
+  for(const mat of mats){
+    const tex=mat.map;
+    tex.wrapS=tex.wrapT=api.THREE.RepeatWrapping;
+    tex.repeat.set(v.repeatU,v.repeatV);
+    tex.offset.set(v.offsetU,v.offsetV);
+    tex.center.set(.5,.5);
+    tex.rotation=v.rotation*Math.PI/180;
+    tex.needsUpdate=true;
+  }
+  const key=whole?objectKey(selected.mesh):selected.key;
+  saved[key]={scope:whole?'object':'face',...v};
   for(const k of ['ru','rv','ou','ov','rot']) nums[k].value=n(+controls[k].value,2);
+  $('sel').textContent=`${key}\nobjeto: ${selected.mesh.name||'mesh'} · ${whole?'TODO EL OBJETO':`cara/material: ${selected.face}`}`;
   updateOutput();
 }
 
 for(const k in controls){
   controls[k].addEventListener('input',apply);
   nums[k].addEventListener('input',()=>{
-    let value=parseFloat(nums[k].value);
-    if(!Number.isFinite(value))return;
+    let value=parseFloat(nums[k].value); if(!Number.isFinite(value))return;
     const min=parseFloat(controls[k].min),max=parseFloat(controls[k].max);
-    value=Math.max(min,Math.min(max,value));
-    controls[k].value=value;
-    apply();
+    value=Math.max(min,Math.min(max,value)); controls[k].value=value; apply();
   });
 }
+$('wholeObject').addEventListener('change',loadSelected);
 
 $('reset').onclick=()=>{
   if(!selected)return;
-  const tex=selected.mat.map;
-  tex.repeat.set(1,1);tex.offset.set(0,0);tex.center.set(.5,.5);tex.rotation=0;tex.needsUpdate=true;
-  delete saved[selected.key];updateOutput();loadSelected();
+  const whole=$('wholeObject').checked;
+  for(const mat of targetMaterials()){
+    const tex=mat.map; tex.repeat.set(1,1);tex.offset.set(0,0);tex.center.set(.5,.5);tex.rotation=0;tex.needsUpdate=true;
+  }
+  delete saved[whole?objectKey(selected.mesh):selected.key];updateOutput();loadSelected();
 };
 $('copy').onclick=async()=>{
   updateOutput();
-  try{
-    await navigator.clipboard.writeText($('out').value);
-    $('copy').textContent='¡COPIADO!';
-    setTimeout(()=>$('copy').textContent='COPIAR CONFIGURACIÓN',1200);
-  }catch(e){$('out').select()}
+  try{await navigator.clipboard.writeText($('out').value);$('copy').textContent='¡COPIADO!';setTimeout(()=>$('copy').textContent='COPIAR CONFIGURACIÓN',1200)}catch(e){$('out').select()}
 };
 $('toggleMode').onclick=toggleMode;
 
-document.addEventListener('keydown',e=>{
-  if(e.code==='KeyV' && !['INPUT','TEXTAREA'].includes(e.target.tagName)){
-    e.preventDefault();toggleMode();
-  }
-});
+document.addEventListener('keydown',e=>{if(e.code==='KeyV' && !['INPUT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();toggleMode();}});
 
 frame.addEventListener('load',()=>{
   const w=frame.contentWindow,d=frame.contentDocument;
-  api=w.__SOQUETIN_EDITOR__;
-  canvas=d.querySelector('canvas');
+  api=w.__SOQUETIN_EDITOR__; canvas=d.querySelector('canvas');
   const overlay=d.getElementById('startOverlay');if(overlay)overlay.style.display='none';
-
-  // V works while keyboard focus is inside the game too.
-  d.addEventListener('keydown',e=>{
-    if(e.code==='KeyV'){
-      e.preventDefault();e.stopPropagation();toggleMode();
-    }
-  },true);
-
-  if(canvas){
-    // In SELECT mode we intercept the click before the game's pointer-lock handler.
-    canvas.addEventListener('click',e=>{
-      if(mode!=='select')return;
-      e.preventDefault();e.stopImmediatePropagation();
-      pickAt(e.clientX,e.clientY);
-    },true);
-  }
-
-  setTimeout(()=>{
-    api=w.__SOQUETIN_EDITOR__;
-    canvas=d.querySelector('canvas');
-  },300);
+  d.addEventListener('keydown',e=>{if(e.code==='KeyV'){e.preventDefault();e.stopPropagation();toggleMode();}},true);
+  if(canvas){canvas.addEventListener('click',e=>{if(mode!=='select')return;e.preventDefault();e.stopImmediatePropagation();pickAt(e.clientX,e.clientY);},true)}
+  setTimeout(()=>{api=w.__SOQUETIN_EDITOR__;canvas=d.querySelector('canvas');},300);
 });
 </script>
 </body>
