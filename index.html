@@ -99,7 +99,7 @@
     </div>
   </div>
   <div id="blackFade"></div>
-  <div id="buildInfo">V1.21 · interacción de afiches simplificada</div>
+  <div id="buildInfo">V1.22 · distancia de afiches + salto</div>
 
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
@@ -965,10 +965,10 @@
       if(dir.lengthSq()<.01) dir.set(-Math.sin(P.camYaw),0,-Math.cos(P.camYaw));
       dir.normalize();
       // Dos losetas quedan apenas al alcance de un salto muy bueno.
-      P.vel.y=4.03;
+      P.vel.y=4.433;
       P.vel.x=dir.x*3.0; P.vel.z=dir.z*3.0;
       P.grounded=false; P.bigJumpUsed=true; P.squash=1;
-      beginJumpTilt(4.03);
+      beginJumpTilt(4.433);
     }
 
     function supportAt(x,z){
@@ -1131,12 +1131,12 @@
         P.autoHopTimer-=dt;
         if(hasInput && P.autoHopTimer<=0){
           dir.normalize();
-          P.vel.y=2.35;
+          P.vel.y=2.585;
           const hopSpeed=2.9;
           P.vel.x=dir.x*hopSpeed;
           P.vel.z=dir.z*hopSpeed;
           P.grounded=false; P.autoHopTimer=0; P.squash=.52;
-          beginJumpTilt(2.35);
+          beginJumpTilt(2.585);
         }
       } else if(hasInput) {
         // Control direccional inmediato en el aire.
@@ -1196,7 +1196,7 @@
         const d=dx*dx+dy*dy+dz*dz;
         if(isPosterFrontFacing(poster) && d<bestD){bestD=d;best=poster;}
       }
-      nearbyPoster=(best && bestD<20.25) ? best : null; // about 4.5 m
+      nearbyPoster=(best && bestD<2.25) ? best : null; // about 1.5 m
       posterPrompt.textContent=isMobileUI?'Pulsa aquí para ampliar':'Pulsa F para ampliar';
       posterPrompt.style.display=nearbyPoster?'block':'none';
     }
