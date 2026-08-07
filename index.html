@@ -134,6 +134,9 @@
     renderer.toneMappingExposure = 1.32;
     document.body.prepend(renderer.domElement);
 
+    // Same-origin hook used only by texture-editor.html. It does not change gameplay.
+    window.__SOQUETIN_EDITOR__ = { THREE, scene, camera, renderer };
+
     const clock = new THREE.Clock();
     const UP = new THREE.Vector3(0,1,0);
     const tmpV = new THREE.Vector3();
@@ -254,6 +257,10 @@
     const ROOM_CENTERS=[-7.0,0,7.0];
     const ROOM_W=7.0;
     const FINAL_W=7.5;
+    const FINAL_LEFT=-FINAL_W/2;
+    const FINAL_RIGHT=FINAL_W/2+2.0;
+    const FINAL_CENTER=(FINAL_LEFT+FINAL_RIGHT)/2;
+    const FINAL_TOTAL_W=FINAL_RIGHT-FINAL_LEFT;
     const OPEN_W=1.2;
     const H=5, T=.3;
     const TILE_SIZE=(ROOM_W-.3)/5;
@@ -269,7 +276,7 @@
     // keep a 5 m "vereda" before and after each jumping zone.
     addFloorRect(0, (Z_START_FRONT+Z_CHALLENGE_SOUTH)/2, OUT_R-OUT_L-.3, Z_START_FRONT-Z_CHALLENGE_SOUTH-.3, 0);
     addFloorRect(0, (Z_CHALLENGE_NORTH+Z_COMMON_NORTH)/2, OUT_R-OUT_L-.3, Math.abs(Z_COMMON_NORTH-Z_CHALLENGE_NORTH)-.3, 0);
-    addFloorRect(0, (Z_COMMON_NORTH+Z_FINAL_NORTH)/2, FINAL_W-.3, Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH)-.3, 0);
+    addFloorRect(FINAL_CENTER, (Z_COMMON_NORTH+Z_FINAL_NORTH)/2, FINAL_TOTAL_W-.3, Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH)-.3, 0);
     for(const cx of ROOM_CENTERS){
       addFloorRect(cx, (Z_CHALLENGE_SOUTH+Z_PIT_SOUTH)/2, ROOM_W-.3, Z_CHALLENGE_SOUTH-Z_PIT_SOUTH, 0);
       addFloorRect(cx, (Z_PIT_NORTH+Z_CHALLENGE_NORTH)/2, ROOM_W-.3, Z_PIT_NORTH-Z_CHALLENGE_NORTH, 0);
@@ -290,14 +297,15 @@
     // Common north wall with one final opening
     buildWallWithOpeningHorizontal(Z_COMMON_NORTH, OUT_L, OUT_R, 0, OPEN_W,T,H);
 
-    // Final corridor walls
-    wallSegment(-FINAL_W/2,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,T,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH),H);
-    wallSegment(FINAL_W/2,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,T,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH),H);
-    wallSegment(0,Z_FINAL_NORTH,FINAL_W+T,T,H);
+    // Final room: 2 m deeper toward the player's right side.
+    // The doorway stays where it was, so the Instagram clue is hidden until you turn right.
+    wallSegment(FINAL_LEFT,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,T,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH),H);
+    wallSegment(FINAL_RIGHT,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,T,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH),H);
+    wallSegment(FINAL_CENTER,Z_FINAL_NORTH,FINAL_TOTAL_W+T,T,H);
 
     // Ceiling (single large slab + corridor)
     boxMesh('ceiling',0,H+0.12,(Z_START_FRONT+Z_COMMON_NORTH)/2,OUT_R-OUT_L+.3,.24,Z_START_FRONT-Z_COMMON_NORTH+.3,ceilMat,false,true);
-    boxMesh('ceiling',0,H+0.12,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,FINAL_W+.3,.24,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH)+.3,ceilMat,false,true);
+    boxMesh('ceiling',FINAL_CENTER,H+0.12,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,FINAL_TOTAL_W+.3,.24,Math.abs(Z_FINAL_NORTH-Z_COMMON_NORTH)+.3,ceilMat,false,true);
 
     // ------------------------------------------------------------
     // LAVA
@@ -410,7 +418,7 @@
     // Instagram clue on the right lateral wall of final corridor
     const instaMat=new THREE.MeshStandardMaterial({map:posterTexture('INSTAGRAM','PISTA FINAL'),roughness:.65});
     const insta=new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.45),instaMat);
-    insta.position.set(FINAL_W/2-.165,2.15,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2); insta.rotation.y=-Math.PI/2; scene.add(insta);
+    insta.position.set(FINAL_RIGHT-.165,2.15,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2); insta.rotation.y=-Math.PI/2; scene.add(insta);
 
     // ------------------------------------------------------------
     // LIGHTING
