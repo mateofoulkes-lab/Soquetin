@@ -83,7 +83,8 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
     }
   }
   </script>
@@ -115,7 +116,9 @@
 
   <script type="module">
     import * as THREE from 'three';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
     // ------------------------------------------------------------
     // BASIC SETUP
@@ -542,6 +545,10 @@
     const SOQUETIN_MODEL_URL='3354c2e8-ca8b-4056-87f9-db61cd76f25d.glb';
     const CHARACTER_VISUAL_HEIGHT=1.12;
     const gltfLoader=new GLTFLoader();
+    const dracoLoader=new DRACOLoader();
+    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
+    gltfLoader.setDRACOLoader(dracoLoader);
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
     gltfLoader.load(SOQUETIN_MODEL_URL,(gltf)=>{
       const model=gltf.scene;
       model.updateMatrixWorld(true);
@@ -572,6 +579,8 @@
       visualRoot.add(model);
     },undefined,(err)=>{
       console.warn('No se pudo cargar el Soquetin GLB; se mantiene el cubo provisional.',err);
+      const status=document.getElementById('status');
+      if(status){ status.textContent='Error cargando Soquetin: '+(err?.message||err); status.style.color='#ff9b7a'; }
     });
 
     const P={
