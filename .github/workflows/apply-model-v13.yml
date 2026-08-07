@@ -1,0 +1,19 @@
+name: Apply model V1.3
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-model-v13.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 patch_model_v13.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add KTX2 support and visible model diagnostics (V1.3)" || exit 0
+          git push
