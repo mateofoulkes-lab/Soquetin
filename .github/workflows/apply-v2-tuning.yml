@@ -1,0 +1,38 @@
+name: Apply Soquetin V2 tuning
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v2-tuning.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply game tuning
+        run: python patch_v2.py
+      - name: Validate module syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          a=s.index('<script type="module">')+len('<script type="module">')
+          b=s.index('</script>',a)
+          Path('/tmp/check.mjs').write_text(s[a:b],encoding='utf-8')
+          PY
+          node --check /tmp/check.mjs
+      - name: Commit updated index and remove temporary patch files
+        run: |
+          rm patch_v2.py
+          rm .github/workflows/apply-v2-tuning.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html patch_v2.py .github/workflows/apply-v2-tuning.yml
+          git commit -m 'Tune dungeon scale, lighting and movement'
+          git push
