@@ -101,7 +101,7 @@
     </div>
   </div>
   <div id="blackFade"></div>
-  <div id="buildInfo">V1.19 · splash + nombre nuevo</div>
+  <div id="buildInfo">V1.20 · ajuste UV en superficies equivalentes</div>
 
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
@@ -292,6 +292,77 @@
           const idx=Number(key.split('#face')[1]);
           const mat=mats[idx]||mats[0];
           applyTextureOverrideToMaterial(mat,SOQUETIN_TEXTURE_OVERRIDES[key]);
+        }
+      });
+    }
+
+
+    // Propagate the user's hand-tuned UV settings only to genuinely similar
+    // architectural surfaces. Explicit overrides always win. Gameplay meshes
+    // (lava, tiles, columns) are deliberately excluded.
+    function boxDims(mesh){
+      const p=mesh.geometry?.parameters||{};
+      return {w:Number(p.width)||0,h:Number(p.height)||0,d:Number(p.depth)||0};
+    }
+    function dimSimilarity(a,b){
+      const rel=(x,y)=>Math.abs(x-y)/Math.max(.001,Math.max(x,y));
+      return Math.max(rel(a.w,b.w),rel(a.h,b.h),rel(a.d,b.d));
+    }
+    function collectExplicitTextureSources(name){
+      const out=[];
+      scene.traverse(mesh=>{
+        if(!mesh?.isMesh || mesh.name!==name)return;
+        const base=textureObjectBaseKey(mesh);
+        const objectCfg=SOQUETIN_TEXTURE_OVERRIDES[`${base}#object`]||null;
+        const faces={};
+        for(const [key,cfg] of Object.entries(SOQUETIN_TEXTURE_OVERRIDES)){
+          if(key.startsWith(`${base}#face`)) faces[Number(key.split('#face')[1])]=cfg;
+        }
+        if(objectCfg || Object.keys(faces).length) out.push({mesh,dims:boxDims(mesh),objectCfg,faces});
+      });
+      return out;
+    }
+    function hasExplicitTextureOverride(mesh){
+      const base=textureObjectBaseKey(mesh);
+      return Object.keys(SOQUETIN_TEXTURE_OVERRIDES).some(k=>k.startsWith(base+'#'));
+    }
+    function applyInheritedTextureCfg(mesh,src){
+      const mats=ensurePerFaceMaterials(mesh);
+      if(src.objectCfg) for(const mat of mats) applyTextureOverrideToMaterial(mat,src.objectCfg);
+      for(const [idxText,cfg] of Object.entries(src.faces)){
+        const idx=Number(idxText), mat=mats[idx]||mats[0];
+        applyTextureOverrideToMaterial(mat,cfg);
+      }
+    }
+    function applySimilarArchitectureTextureOverrides(){
+      const wallSources=collectExplicitTextureSources('wall');
+      const floorSources=collectExplicitTextureSources('floor');
+      scene.traverse(mesh=>{
+        if(!mesh?.isMesh || !mesh.geometry || !mesh.material)return;
+        const name=mesh.name;
+        if(name!=='wall' && name!=='floor' && name!=='ceiling')return;
+        if(hasExplicitTextureOverride(mesh))return;
+        const dims=boxDims(mesh);
+        const sources=name==='wall'?wallSources:floorSources;
+        let best=null,bestScore=Infinity;
+        for(const src of sources){
+          const score=dimSimilarity(dims,src.dims);
+          if(score<bestScore){bestScore=score;best=src;}
+        }
+        // Copy exact hand-tuned transformations only when dimensions are close.
+        if(best && bestScore<=.16){
+          applyInheritedTextureCfg(mesh,best);
+          mesh.userData.textureInheritedFrom=textureObjectBaseKey(best.mesh);
+          return;
+        }
+        // Ceilings have no hand-tuned source. Use the repeat density inferred
+        // from the two corrected broad floor slabs (~0.17 repeats per metre),
+        // but do not invent positional offsets or rotation.
+        if(name==='ceiling'){
+          const cfg={repeatU:Math.max(.1,dims.w*.17),repeatV:Math.max(.1,dims.d*.17),offsetU:0,offsetV:0,rotation:0};
+          const mats=ensurePerFaceMaterials(mesh);
+          for(const mat of mats) applyTextureOverrideToMaterial(mat,cfg);
+          mesh.userData.textureInheritedFrom='floor-density-0.17';
         }
       });
     }
@@ -556,6 +627,7 @@
 
     // Apply exported UV/repeat settings after all dungeon geometry is built.
     applyHardcodedTextureOverrides();
+    applySimilarArchitectureTextureOverrides();
 
     let activeShadowLight=-1;
     function updateCharacterShadowLight(){
