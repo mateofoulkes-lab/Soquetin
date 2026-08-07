@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.12: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.13: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.12</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.13</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -500,7 +500,7 @@
     }
     function posterOnHorizontalWall(x,y,z,w,h,source,faceNorth=false,isExternal=false){
       const tex=isExternal ? new THREE.TextureLoader().load(source,t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}) : posterTexture(source);
-      const mat=new THREE.MeshStandardMaterial({map:tex,roughness:.65});
+      const mat=new THREE.MeshBasicMaterial({map:tex,toneMapped:false,side:THREE.DoubleSide});
       const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
       p.position.set(x,y,z+(faceNorth?-.161:.161));
       if(faceNorth) p.rotation.y=Math.PI;
@@ -510,7 +510,7 @@
     }
     function posterOnRightWall(x,y,z,w,h,source,isExternal=false){
       const tex=isExternal ? new THREE.TextureLoader().load(source,t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}) : posterTexture(source,'PISTA FINAL');
-      const mat=new THREE.MeshStandardMaterial({map:tex,roughness:.65});
+      const mat=new THREE.MeshBasicMaterial({map:tex,toneMapped:false,side:THREE.DoubleSide});
       const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
       p.position.set(x-.165,y,z); p.rotation.y=-Math.PI/2; scene.add(p);
       const displaySource=isExternal ? source : tex.image.toDataURL('image/png');
@@ -717,14 +717,20 @@
         renderer.domElement.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
-    renderer.domElement.addEventListener('pointerdown',e=>{
+    // Capture poster taps BEFORE the mobile joystick zones can consume them.
+    document.addEventListener('pointerdown',e=>{
       if(posterOverlayOpen || !nearbyPoster)return;
       const r=renderer.domElement.getBoundingClientRect();
+      if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom)return;
       const ndc=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
       raycaster.setFromCamera(ndc,camera);
       const hit=raycaster.intersectObjects(posters,false)[0];
-      if(hit && hit.object===nearbyPoster){ e.preventDefault(); openPoster(hit.object); }
-    });
+      if(hit && hit.object===nearbyPoster){
+        e.preventDefault();
+        e.stopPropagation();
+        openPoster(hit.object);
+      }
+    },true);
     document.addEventListener('mousemove',e=>{
       if(!mouseLocked) return;
       P.camYaw -= e.movementX*.0025;
