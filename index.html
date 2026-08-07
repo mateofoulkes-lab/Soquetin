@@ -93,7 +93,7 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>Recuperador de password de Soquetin</h1>
-      <p>Prototipo V1.11: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
+      <p>Prototipo V1.12: exploración 3D, saltos, losetas falsas, columnas, lava y respawn. Modelo Soquetin GLB provisional integrado.</p>
       <button id="startBtn">ENTRAR AL DUNGEON</button>
       <div id="status">PC: WASD / flechas · Mouse · Espacio &nbsp;—&nbsp; Celular: dos controles + SALTO</div>
     </div>
@@ -102,7 +102,7 @@
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
-    <div id="title">Recuperador de password de Soquetin · V1.11</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
+    <div id="title">Recuperador de password de Soquetin · V1.12</div><div id="modelStatus" style="position:absolute;left:18px;top:58px;padding:6px 9px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);border-radius:8px;font:700 11px ui-monospace,monospace;color:#ffd88a">MODELO: CARGANDO…</div>
     <div id="help"><b>WASD / flechas</b>: avanzar a saltitos<br><b>Mouse</b>: girar cámara<br><b>Espacio</b>: salto alto<br><span style="opacity:.7">Acercate a una pared y la cámara se repliega automáticamente.</span></div>
     <div id="crosshair"></div>
     <div id="mobileControls">
@@ -111,6 +111,12 @@
       <div id="rotateHint">MIRAR</div>
       <div id="jumpBtn">SALTO</div>
     </div>
+  </div>
+
+  <div id="posterPrompt" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:18;display:none;padding:10px 16px;border-radius:10px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);color:#fff;font:700 14px Inter,system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(5px);white-space:nowrap">Toca la imagen o presiona F para ampliar...</div>
+  <div id="posterOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.91);cursor:zoom-out">
+    <img id="posterOverlayImg" alt="Cartel ampliado" style="display:block;max-width:94vw;max-height:92vh;object-fit:contain;box-shadow:0 24px 90px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.16)">
+    <div style="position:absolute;right:18px;top:15px;color:#fff;font:600 12px Inter,system-ui,sans-serif;opacity:.72">F / ESC / toque para cerrar</div>
   </div>
 
   <script type="module">
@@ -474,8 +480,9 @@
     addColumnRoom(ROOM_CENTERS[2]);
 
     // ------------------------------------------------------------
-    // POSTERS / PLACEHOLDERS
+    // POSTERS / INTERACTIVE ARTWORK
     // ------------------------------------------------------------
+    const posters=[];
     function posterTexture(title,subtitle='PLACEHOLDER') {
       return canvasTexture(512,(g,s)=>{
         g.fillStyle='#d6cdb7'; g.fillRect(0,0,s,s);
@@ -486,22 +493,37 @@
         g.font='600 22px sans-serif'; g.fillStyle='#5b5143'; g.fillText(subtitle,s/2,390);
       });
     }
-    function posterOnHorizontalWall(x,y,z,w,h,title,faceNorth=false){
-      const mat=new THREE.MeshStandardMaterial({map:posterTexture(title),roughness:.65});
+    function registerPoster(mesh,source){
+      mesh.userData.posterSource=source;
+      posters.push(mesh);
+      return mesh;
+    }
+    function posterOnHorizontalWall(x,y,z,w,h,source,faceNorth=false,isExternal=false){
+      const tex=isExternal ? new THREE.TextureLoader().load(source,t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}) : posterTexture(source);
+      const mat=new THREE.MeshStandardMaterial({map:tex,roughness:.65});
       const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
       p.position.set(x,y,z+(faceNorth?-.161:.161));
       if(faceNorth) p.rotation.y=Math.PI;
-      scene.add(p); return p;
+      scene.add(p);
+      const displaySource=isExternal ? source : tex.image.toDataURL('image/png');
+      return registerPoster(p,displaySource);
     }
-    posterOnHorizontalWall(-3.9,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 01',false);
-    posterOnHorizontalWall(3.9,2.0,Z_CHALLENGE_SOUTH+.001,2.15,1.25,'IMAGEN 02',false);
-    posterOnHorizontalWall(0,2.15,Z_START_FRONT-.001,2.5,1.45,'IMAGEN 03',true);
-    posterOnHorizontalWall(-2.8,2.0,Z_COMMON_NORTH+.001,1.5,1.15,'PISTA',false);
+    function posterOnRightWall(x,y,z,w,h,source,isExternal=false){
+      const tex=isExternal ? new THREE.TextureLoader().load(source,t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}) : posterTexture(source,'PISTA FINAL');
+      const mat=new THREE.MeshStandardMaterial({map:tex,roughness:.65});
+      const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
+      p.position.set(x-.165,y,z); p.rotation.y=-Math.PI/2; scene.add(p);
+      const displaySource=isExternal ? source : tex.image.toDataURL('image/png');
+      return registerPoster(p,displaySource);
+    }
 
-    // Instagram clue on the right lateral wall of final corridor
-    const instaMat=new THREE.MeshStandardMaterial({map:posterTexture('INSTAGRAM','PISTA FINAL'),roughness:.65});
-    const insta=new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.45),instaMat);
-    insta.position.set(FINAL_RIGHT-.165,2.15,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2); insta.rotation.y=-Math.PI/2; scene.add(insta);
+    // All poster planes are 150% of their previous physical size.
+    posterOnHorizontalWall(-3.9,2.0,Z_CHALLENGE_SOUTH+.001,3.225,1.875,'IMAGEN 01',false,false);
+    posterOnHorizontalWall(3.9,2.0,Z_CHALLENGE_SOUTH+.001,3.225,1.875,'IMAGEN 02',false,false);
+    // Poster 03 uses the movement artwork. 3.75 / 2.175 matches its 1647:955 aspect ratio.
+    posterOnHorizontalWall(0,2.15,Z_START_FRONT-.001,3.75,2.175,'poster03-protocolo.jpg',true,true);
+    posterOnHorizontalWall(-2.8,2.0,Z_COMMON_NORTH+.001,2.25,1.725,'PISTA',false,false);
+    posterOnRightWall(FINAL_RIGHT,2.15,(Z_COMMON_NORTH+Z_FINAL_NORTH)/2,3.30,2.175,'INSTAGRAM',false);
 
     // ------------------------------------------------------------
     // LIGHTING
@@ -653,16 +675,56 @@
     // ------------------------------------------------------------
     const keys={};
     let mouseLocked=false;
+    const posterPrompt=document.getElementById('posterPrompt');
+    const posterOverlay=document.getElementById('posterOverlay');
+    const posterOverlayImg=document.getElementById('posterOverlayImg');
+    let nearbyPoster=null;
+    let posterOverlayOpen=false;
+
+    function openPoster(poster){
+      if(!poster || P.dead)return;
+      nearbyPoster=poster;
+      posterOverlayOpen=true;
+      posterOverlayImg.src=poster.userData.posterSource;
+      posterOverlay.style.display='flex';
+      posterPrompt.style.display='none';
+      document.exitPointerLock?.();
+      P.vel.x=0; P.vel.z=0;
+    }
+    function closePoster(){
+      if(!posterOverlayOpen)return;
+      posterOverlayOpen=false;
+      posterOverlay.style.display='none';
+      posterOverlayImg.removeAttribute('src');
+      if(matchMedia('(pointer:fine)').matches) setTimeout(()=>renderer.domElement.requestPointerLock?.(),80);
+    }
+    posterOverlay.addEventListener('pointerdown',e=>{e.preventDefault();closePoster();});
+
     addEventListener('keydown',e=>{
+      if(e.code==='KeyF'){
+        e.preventDefault();
+        if(posterOverlayOpen) closePoster(); else if(nearbyPoster) openPoster(nearbyPoster);
+        return;
+      }
+      if(e.code==='Escape' && posterOverlayOpen){ e.preventDefault(); closePoster(); return; }
+      if(posterOverlayOpen)return;
       keys[e.code]=true;
       if(e.code==='Space'){ e.preventDefault(); tryBigJump(); }
     });
     addEventListener('keyup',e=>keys[e.code]=false);
     renderer.domElement.addEventListener('click',()=> {
-      if(matchMedia('(pointer:fine)').matches && document.getElementById('startOverlay').style.display==='none')
+      if(matchMedia('(pointer:fine)').matches && !posterOverlayOpen && document.getElementById('startOverlay').style.display==='none')
         renderer.domElement.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
+    renderer.domElement.addEventListener('pointerdown',e=>{
+      if(posterOverlayOpen || !nearbyPoster)return;
+      const r=renderer.domElement.getBoundingClientRect();
+      const ndc=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+      raycaster.setFromCamera(ndc,camera);
+      const hit=raycaster.intersectObjects(posters,false)[0];
+      if(hit && hit.object===nearbyPoster){ e.preventDefault(); openPoster(hit.object); }
+    });
     document.addEventListener('mousemove',e=>{
       if(!mouseLocked) return;
       P.camYaw -= e.movementX*.0025;
@@ -926,6 +988,10 @@
     }
 
     function updatePlayer(dt){
+      if(posterOverlayOpen){
+        P.vel.x=0; P.vel.z=0;
+        return;
+      }
       if(P.dead){
         P.respawnTimer-=dt;
         const deathProgress=1-THREE.MathUtils.clamp(P.respawnTimer/1.5,0,1);
@@ -1016,6 +1082,20 @@
       updateCharacterShadowLight();
     }
 
+    function updatePosterInteraction(){
+      if(posterOverlayOpen || P.dead){ posterPrompt.style.display='none'; return; }
+      let best=null, bestD=Infinity;
+      for(const poster of posters){
+        const dx=poster.position.x-P.pos.x;
+        const dy=poster.position.y-(P.pos.y+.65);
+        const dz=poster.position.z-P.pos.z;
+        const d=dx*dx+dy*dy+dz*dz;
+        if(d<bestD){bestD=d;best=poster;}
+      }
+      nearbyPoster=(best && bestD<7.3) ? best : null; // about 2.7 m
+      posterPrompt.style.display=nearbyPoster?'block':'none';
+    }
+
     // ------------------------------------------------------------
     // CAMERA WITH WALL AVOIDANCE
     // ------------------------------------------------------------
@@ -1097,6 +1177,7 @@
       updateBreakTiles(dt);
       updateLava(dt);
       updateDeathSmoke(dt);
+      updatePosterInteraction();
       updateCamera(dt);
       renderer.render(scene,camera);
     }
