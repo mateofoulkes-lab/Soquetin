@@ -1,0 +1,43 @@
+name: Promote enhanced main
+
+on:
+  push:
+    paths:
+      - '.github/workflows/promote-enhanced-main.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clean enhanced build
+        run: python3 patch_promote_enhanced.py
+      - name: Syntax check cleaned enhanced build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index2.html').read_text(encoding='utf-8')
+          m=re.search(r'<script type="module">(.*?)</script>',s,re.S)
+          if not m: raise SystemExit('module script not found')
+          Path('/tmp/index-check.mjs').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/index-check.mjs
+      - name: Promote enhanced version
+        run: |
+          test ! -e index_old.html || { echo 'index_old.html already exists; refusing overwrite'; exit 1; }
+          mv index.html index_old.html
+          mv index2.html index.html
+          test -f index.html
+          test -f index_old.html
+          test ! -f index2.html
+      - name: Commit promotion
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html index_old.html index2.html
+          git commit -m "Promote enhanced build to main index"
+          git push
