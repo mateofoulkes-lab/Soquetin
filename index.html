@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="theme-color" content="#11100d" />
-  <title>El Enigma de Soquetin</title>
+  <title>El Enigma de Soquetin — Enhanced</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -75,6 +75,12 @@
     @media (orientation:portrait) and (pointer:coarse) {
       #landscape { display:flex; }
     }
+  
+    #fxFlash{position:fixed;inset:0;z-index:115;pointer-events:none;opacity:0;background:rgba(75,0,0,.55)}
+    #fxFlash.hit{animation:fxHit .22s ease-out}
+    #fxFlash.respawn{animation:fxRespawn .30s ease-out}
+    @keyframes fxHit{0%{opacity:.48}100%{opacity:0}}
+    @keyframes fxRespawn{0%{opacity:.65;background:#060403}45%{opacity:.3;background:rgba(90,16,5,.45)}100%{opacity:0}}
   </style>
   <script type="importmap">
   {
@@ -90,10 +96,11 @@
     <div id="splashCard">
       <div id="splashTitle">El Enigma de Soquetin</div>
       <div id="loadTrack"><div id="loadBar"></div></div>
-      <div id="loadText">CARGANDO · 0%</div>
+      <div id="loadText">CARGANDO ENHANCED · 0%</div>
     </div>
   </div>
   <div id="blackFade"></div>
+  <div id="fxFlash"></div>
   <div id="landscape"><div class="box"><strong>Giralo ↻</strong>Este juego está diseñado para jugarse con el celular en horizontal.</div></div>
 
   <div id="hud">
@@ -107,7 +114,7 @@
     </div>
   </div>
 
-  <div id="posterPrompt" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:58;display:none;padding:10px 16px;border-radius:14px;background:rgba(105,105,105,.46);border:1px solid rgba(255,255,255,.26);color:#fff;font:700 14px Inter,system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap;user-select:none">Pulsa F para ampliar</div>
+  <div id="posterPrompt" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%) scale(.96);z-index:58;display:block;opacity:0;visibility:hidden;padding:10px 16px;border-radius:14px;background:rgba(105,105,105,.46);border:1px solid rgba(255,255,255,.26);color:#fff;font:700 14px Inter,system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap;user-select:none;transition:opacity .18s ease,transform .18s ease,visibility .18s">Pulsa F para ampliar</div>
   <div id="posterOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.91);cursor:zoom-out">
     <img id="posterOverlayImg" alt="Cartel ampliado" style="display:block;max-width:94vw;max-height:92vh;object-fit:contain;box-shadow:0 24px 90px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.16)">
     <div style="position:absolute;right:18px;top:15px;color:#fff;font:600 12px Inter,system-ui,sans-serif;opacity:.72">F / ESC / toque para cerrar</div>
@@ -503,8 +510,39 @@
     // ------------------------------------------------------------
     // LAVA
     // ------------------------------------------------------------
+    const lavaCanvas=document.createElement('canvas');
+    lavaCanvas.width=1024; lavaCanvas.height=512;
+    const lavaCtx=lavaCanvas.getContext('2d');
+    {
+      const w=lavaCanvas.width,h=lavaCanvas.height;
+      const grad=lavaCtx.createLinearGradient(0,0,w,h);
+      grad.addColorStop(0,'#6c0b00'); grad.addColorStop(.32,'#c92d04'); grad.addColorStop(.67,'#ff650b'); grad.addColorStop(1,'#ffb11b');
+      lavaCtx.fillStyle=grad; lavaCtx.fillRect(0,0,w,h);
+      // Long, non-periodic veins drawn across the whole atlas so the plane reads as one surface.
+      for(let band=0;band<34;band++){
+        const baseY=(band+.35+Math.random()*.3)*(h/34);
+        lavaCtx.beginPath();
+        for(let x=0;x<=w;x+=12){
+          const y=baseY+Math.sin(x*.011+band*.71)*9+Math.sin(x*.027+band*1.9)*3+(Math.random()-.5)*1.4;
+          if(x===0) lavaCtx.moveTo(x,y); else lavaCtx.lineTo(x,y);
+        }
+        lavaCtx.strokeStyle=`rgba(255,${95+Math.random()*105|0},5,${.12+Math.random()*.16})`;
+        lavaCtx.lineWidth=2+Math.random()*8; lavaCtx.stroke();
+      }
+      for(let i=0;i<260;i++){
+        const x=Math.random()*w,y=Math.random()*h,r=1+Math.random()*7;
+        lavaCtx.fillStyle=`rgba(255,${70+Math.random()*120|0},0,${.05+Math.random()*.12})`;
+        lavaCtx.beginPath(); lavaCtx.arc(x,y,r,0,Math.PI*2); lavaCtx.fill();
+      }
+    }
+    const texLava=new THREE.CanvasTexture(lavaCanvas);
+    texLava.colorSpace=THREE.SRGBColorSpace;
+    texLava.wrapS=texLava.wrapT=THREE.ClampToEdgeWrapping;
+    texLava.minFilter=THREE.LinearMipmapLinearFilter;
+    texLava.magFilter=THREE.LinearFilter;
+    texLava.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
     const lavaMat = new THREE.MeshStandardMaterial({
-      color:0xff5b15, emissive:0xff2600, emissiveIntensity:1.6, roughness:.55
+      map:texLava,color:0xff8a28, emissive:0xff2600, emissiveMap:texLava, emissiveIntensity:1.6, roughness:.55
     });
     const lava = new THREE.Mesh(new THREE.PlaneGeometry(126.0,(Math.abs(Z_PIT_NORTH-Z_PIT_SOUTH)+.6)*6,1,1),lavaMat);
     lava.rotation.x=-Math.PI/2; lava.position.set(0,-10,(Z_PIT_SOUTH+Z_PIT_NORTH)/2); scene.add(lava);
@@ -774,7 +812,7 @@
       radius:.22, height:1.12, grounded:true,
       autoHopTimer:0, squash:0, dead:false, respawnTimer:0, deathSinkVy:0, deathSmokeTimer:0,
       animPhase:'idle', animTime:0, animLaunchVy:2.35, tiltDeg:0, tiltPivotY:0, animStartTilt:0, animStartPivot:0, jumpTiltActive:false,
-      spawn:new THREE.Vector3(0,.02,10.2), bigJumpUsed:false
+      spawn:new THREE.Vector3(0,.02,10.2), bigJumpUsed:false, jumpBuffer:0, coyoteTime:.11, idleTime:0, autoHopAir:false
     };
 
     // ------------------------------------------------------------
@@ -787,6 +825,16 @@
     const posterOverlayImg=document.getElementById('posterOverlayImg');
     let nearbyPoster=null;
     let posterOverlayOpen=false;
+    const fxFlash=document.getElementById('fxFlash');
+    function setPosterPromptVisible(show){
+      posterPrompt.style.opacity=show?'1':'0';
+      posterPrompt.style.visibility=show?'visible':'hidden';
+      posterPrompt.style.transform=show?'translateX(-50%) scale(1)':'translateX(-50%) scale(.96)';
+    }
+    function pulseFlash(cls){
+      fxFlash.classList.remove('hit','respawn'); void fxFlash.offsetWidth; fxFlash.classList.add(cls);
+      setTimeout(()=>fxFlash.classList.remove(cls),360);
+    }
 
     function openPoster(poster){
       if(!poster || P.dead)return;
@@ -795,7 +843,7 @@
       posterOverlayImg.src=poster.userData.posterSource;
       posterOverlay.style.display='flex';
       document.body.classList.add('poster-open');
-      posterPrompt.style.display='none';
+      setPosterPromptVisible(false);
       document.exitPointerLock?.();
       P.vel.x=0; P.vel.z=0;
     }
@@ -818,7 +866,7 @@
       if(e.code==='Escape' && posterOverlayOpen){ e.preventDefault(); closePoster(); return; }
       if(posterOverlayOpen)return;
       keys[e.code]=true;
-      if(e.code==='Space'){ e.preventDefault(); tryBigJump(); }
+      if(e.code==='Space'){ e.preventDefault(); if(e.repeat)return; P.jumpBuffer=.12; if(tryBigJump())P.jumpBuffer=0; }
     });
     addEventListener('keyup',e=>keys[e.code]=false);
     renderer.domElement.addEventListener('click',()=> {
@@ -898,7 +946,7 @@
     }
     setupStick('leftZone','leftBase','move');
     setupStick('rightZone','rightBase','look');
-    document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();if(posterOverlayOpen) closePoster();tryBigJump();});
+    document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();if(posterOverlayOpen) closePoster();P.jumpBuffer=.12;if(tryBigJump())P.jumpBuffer=0;});
 
     // ------------------------------------------------------------
     // AUDIO
@@ -916,13 +964,63 @@
       a.preload='auto';
       sfxBase[key]=a;
     }
-    function playSfx(key,volume=1){
+    let ambienceCtx=null;
+    function ensureAmbience(){
+      if(ambienceCtx){ if(ambienceCtx.state==='suspended') ambienceCtx.resume(); return; }
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+      ambienceCtx=new AC();
+      const master=ambienceCtx.createGain(); master.gain.value=.038; master.connect(ambienceCtx.destination);
+      const len=ambienceCtx.sampleRate*3, buf=ambienceCtx.createBuffer(1,len,ambienceCtx.sampleRate), data=buf.getChannelData(0);
+      for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*.18;
+      const noise=ambienceCtx.createBufferSource(); noise.buffer=buf; noise.loop=true;
+      const lp=ambienceCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=240;
+      const ng=ambienceCtx.createGain(); ng.gain.value=.18; noise.connect(lp).connect(ng).connect(master); noise.start();
+      const hum=ambienceCtx.createOscillator(); hum.type='sine'; hum.frequency.value=49;
+      const hg=ambienceCtx.createGain(); hg.gain.value=.035; hum.connect(hg).connect(master); hum.start();
+    }
+    addEventListener('pointerdown',ensureAmbience,{passive:true});
+    addEventListener('keydown',ensureAmbience,{passive:true});
+    function playSfx(key,volume=1,rate=1,echo=true){
       const base=sfxBase[key];
       if(!base)return;
       const a=base.cloneNode();
-      a.volume=THREE.MathUtils.clamp(volume,0,1);
+      a.volume=THREE.MathUtils.clamp(volume,0,1); a.playbackRate=rate;
       a.play().catch(()=>{});
+      if(echo && key!=='pop') setTimeout(()=>{
+        const e=base.cloneNode(); e.volume=THREE.MathUtils.clamp(volume*.11,0,.16); e.playbackRate=rate*.995; e.play().catch(()=>{});
+      },72);
     }
+
+    // ------------------------------------------------------------
+    // ENHANCED FEEDBACK FX
+    // ------------------------------------------------------------
+    const dustParticles=[];
+    const dustGeo=new THREE.SphereGeometry(.025,6,4);
+    function spawnDust(x,y,z,count=7,warm=false){
+      for(let i=0;i<count;i++){
+        const mat=new THREE.MeshBasicMaterial({color:warm?0x8f3a16:0x827865,transparent:true,opacity:.26,depthWrite:false});
+        const m=new THREE.Mesh(dustGeo,mat); m.position.set(x+(Math.random()-.5)*.42,y+.025,z+(Math.random()-.5)*.42);
+        const sc=.7+Math.random()*1.2; m.scale.setScalar(sc); scene.add(m);
+        dustParticles.push({m,age:0,life:.26+Math.random()*.24,vx:(Math.random()-.5)*.7,vy:.18+Math.random()*.35,vz:(Math.random()-.5)*.7});
+      }
+    }
+    function updateDust(dt){
+      for(let i=dustParticles.length-1;i>=0;i--){
+        const p=dustParticles[i]; p.age+=dt; p.m.position.x+=p.vx*dt; p.m.position.y+=p.vy*dt; p.m.position.z+=p.vz*dt;
+        const q=p.age/p.life; p.m.material.opacity=.26*(1-q); p.m.scale.multiplyScalar(1+dt*1.5);
+        if(q>=1){scene.remove(p.m);p.m.material.dispose();dustParticles.splice(i,1);}
+      }
+    }
+    const blobShadow=new THREE.Mesh(new THREE.CircleGeometry(.26,24),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false,toneMapped:false}));
+    blobShadow.rotation.x=-Math.PI/2; blobShadow.renderOrder=3; scene.add(blobShadow);
+    function updateBlobShadow(){
+      if(P.dead){blobShadow.visible=false;return;}
+      const sup=supportAt(P.pos.x,P.pos.z); if(!sup){blobShadow.visible=false;return;}
+      const h=Math.max(0,P.pos.y-sup.y); if(h>3.2){blobShadow.visible=false;return;}
+      blobShadow.visible=true; blobShadow.position.set(P.pos.x,sup.y+.014,P.pos.z);
+      const k=1+Math.min(1.5,h)*.32; blobShadow.scale.set(k,k,k); blobShadow.material.opacity=.28/(1+h*.55);
+    }
+    let cameraImpact=0;
 
     // ------------------------------------------------------------
     // CHARACTER PHYSICS
@@ -1008,9 +1106,11 @@
     }
 
     function tryBigJump(){
-      // El salto grande puede interrumpir inmediatamente un saltito automatico.
-      // Solo se permite uno hasta volver a tocar una superficie.
-      if(P.dead || P.bigJumpUsed) return;
+      // Big jump is legal from real ground, during the short coyote window,
+      // or while interrupting an intentional automatic hop. It is NOT a free air-jump.
+      if(P.dead || P.bigJumpUsed) return false;
+      const eligible=P.grounded || P.coyoteTime>0 || P.autoHopAir;
+      if(!eligible) return false;
       const dir=inputVector();
       const jumpHasDirection=dir.lengthSq()>=.01;
       if(!jumpHasDirection) dir.set(-Math.sin(P.camYaw),0,-Math.cos(P.camYaw));
@@ -1018,7 +1118,7 @@
       // Dos losetas quedan apenas al alcance de un salto muy bueno.
       P.vel.y=4.433;
       P.vel.x=dir.x*3.0; P.vel.z=dir.z*3.0;
-      P.grounded=false; P.bigJumpUsed=true; P.squash=1;
+      P.grounded=false; P.bigJumpUsed=true; P.autoHopAir=false; P.coyoteTime=0; P.squash=1;
       if(jumpHasDirection){
         beginJumpTilt(4.433);
       }else{
@@ -1027,6 +1127,7 @@
         applyCharacterTilt(0,0);
       }
       playSfx('jump',.82);
+      return true;
     }
 
     function supportAt(x,z){
@@ -1045,7 +1146,7 @@
       for(const t of breakTiles){
         if(t.broken) continue;
         if(P.pos.x>=t.minX && P.pos.x<=t.maxX && P.pos.z>=t.minZ && P.pos.z<=t.maxZ){
-          t.broken=true; t.t=0; break;
+          t.broken=true; t.t=0; spawnDust(t.mesh.position.x,.02,t.mesh.position.z,5,false); break;
         }
       }
     }
@@ -1138,16 +1239,18 @@
       P.deathSmokeTimer=0;
       P.vel.x=0; P.vel.z=0; P.vel.y=0;
       P.grounded=false;
-      playSfx('death',.9);
+      pulseFlash('hit');
+      playSfx('death',.9,.98);
     }
     function respawn(){
-      P.dead=false; P.pos.copy(P.spawn); P.vel.set(0,0,0); P.grounded=true; P.autoHopTimer=0; P.bigJumpUsed=false; P.squash=.4;
+      P.dead=false; P.pos.copy(P.spawn); P.vel.set(0,0,0); P.grounded=true; P.autoHopTimer=0; P.bigJumpUsed=false; P.autoHopAir=false; P.coyoteTime=.11; P.jumpBuffer=0; P.squash=.4;
       P.deathSinkVy=0; P.deathSmokeTimer=0;
       P.animPhase='idle'; P.animTime=0; P.tiltDeg=0; P.tiltPivotY=0;
       applyCharacterTilt(0,0);
       setSoquetinBurn(0);
       clearDeathSmoke();
-      playSfx('pop',.9);
+      pulseFlash('respawn');
+      playSfx('pop',.9,1,false);
     }
 
     function updatePlayer(dt){
@@ -1176,6 +1279,7 @@
       P.camYaw -= mobile.lookX*dt*2.0;
       P.camPitch=THREE.MathUtils.clamp(P.camPitch-mobile.lookY*dt*1.55,-.15,1.05);
 
+      P.jumpBuffer=Math.max(0,P.jumpBuffer-dt);
       const dir=inputVector();
       const hasInput=dir.lengthSq()>.025;
 
@@ -1194,9 +1298,11 @@
           const hopSpeed=2.9;
           P.vel.x=dir.x*hopSpeed;
           P.vel.z=dir.z*hopSpeed;
-          P.grounded=false; P.autoHopTimer=0; P.squash=.52;
+          P.grounded=false; P.autoHopAir=true; P.coyoteTime=0; P.autoHopTimer=0; P.squash=.52;
           beginJumpTilt(2.585);
-          playSfx('walkExpand',.48);
+          const takeoffSupport=supportAt(P.pos.x,P.pos.z);
+          const takeoffRate=takeoffSupport?.type==='safeTile'?1.08:takeoffSupport?.type==='column'?.94:1;
+          playSfx('walkExpand',.48,takeoffRate);
         }
       } else if(hasInput) {
         // Control direccional inmediato en el aire.
@@ -1223,12 +1329,22 @@
       const support=supportAt(P.pos.x,P.pos.z);
       if(support && P.vel.y<=0 && P.pos.y<=support.y+.16 && P.pos.y>=support.y-.42){
         if(!P.grounded && P.vel.y<-1.2){
+          const impactVy=Math.abs(P.vel.y);
           P.squash=.38;
           beginLandingTilt();
-          playSfx('walkCompress',.48);
+          cameraImpact=Math.min(.12,impactVy*.016);
+          spawnDust(P.pos.x,support.y,P.pos.z,Math.min(10,4+Math.floor(impactVy)),false);
+          const landRate=support.type==='safeTile'?1.08:support.type==='column'?.94:1;
+          playSfx('walkCompress',.48,landRate);
         }
         P.pos.y=support.y+.02; P.vel.y=0; P.grounded=true;
+        P.coyoteTime=.11;
+        // A real support resets the one-big-jump lock before consuming the buffer.
+        // False tiles never reach this branch because they are not supportRects.
+        P.bigJumpUsed=false;
+        if(P.jumpBuffer>0){ P.jumpBuffer=0; tryBigJump(); }
       } else if(!support || P.pos.y>0.18) {
+        if(P.grounded) P.coyoteTime=.11; else P.coyoteTime=Math.max(0,P.coyoteTime-dt);
         P.grounded=false;
       }
 
@@ -1241,6 +1357,17 @@
         const q=Math.sin(P.squash*Math.PI);
         sy=1-.25*q; sxz=1+.12*q;
       } else if(!P.grounded && P.vel.y>1.2){ sy=1.09; sxz=.955; }
+      const trulyIdle=P.grounded && !hasInput && P.animPhase==='idle';
+      if(trulyIdle){
+        P.idleTime+=dt;
+        const breath=Math.sin(P.idleTime*1.7);
+        sy*=1+breath*.018; sxz*=1-breath*.005;
+        const lookWave=Math.sin(P.idleTime*.55);
+        tiltRoot.rotation.y=THREE.MathUtils.lerp(tiltRoot.rotation.y,lookWave*THREE.MathUtils.degToRad(9),1-Math.exp(-dt*2.4));
+      }else{
+        P.idleTime=0;
+        tiltRoot.rotation.y=THREE.MathUtils.lerp(tiltRoot.rotation.y,0,1-Math.exp(-dt*8));
+      }
       visualRoot.scale.set(sxz,sy,sxz);
       updateJumpTilt(dt);
       playerRoot.position.copy(P.pos); playerRoot.rotation.y=P.yaw;
@@ -1248,7 +1375,7 @@
     }
 
     function updatePosterInteraction(){
-      if(posterOverlayOpen || P.dead){ posterPrompt.style.display='none'; return; }
+      if(posterOverlayOpen || P.dead){ setPosterPromptVisible(false); return; }
       let best=null, bestHorizontalD=Infinity;
       const maxHorizontalD2=2.25; // 1.5 m radius in X/Z
       const maxVerticalDelta=3.0; // tall cylinder so floor-level players can reach high posters
@@ -1264,7 +1391,7 @@
       }
       nearbyPoster=(best && bestHorizontalD<maxHorizontalD2) ? best : null;
       posterPrompt.textContent=isMobileUI?'Pulsa aquí para ampliar':'Pulsa F para ampliar';
-      posterPrompt.style.display=nearbyPoster?'block':'none';
+      setPosterPromptVisible(!!nearbyPoster);
     }
 
     // ------------------------------------------------------------
@@ -1284,6 +1411,8 @@
         target.y + Math.sin(P.camPitch)*dist + .35,
         target.z + Math.cos(P.camYaw)*horiz
       );
+      cameraImpact*=Math.exp(-dt*15);
+      desired.y-=cameraImpact;
 
       const rayDir=desired.clone().sub(target); const rayLen=rayDir.length(); rayDir.normalize();
       raycaster.set(target,rayDir); raycaster.far=rayLen;
@@ -1302,20 +1431,35 @@
       for(const t of breakTiles){
         if(!t.broken)continue;
         t.t+=dt;
-        if(t.t<.65){
-          const k=t.t/.65;
-          t.mesh.position.y=t.baseY-1.4*k*k;
-          t.mesh.rotation.x=k*.8; t.mesh.rotation.z=k*.35;
+        if(t.t<.10){
+          const k=THREE.MathUtils.smoothstep(t.t/.10,0,1);
+          t.mesh.position.y=t.baseY-.08*k;
+          t.mesh.rotation.x=k*.045; t.mesh.rotation.z=k*.025;
+        } else if(t.t<.65){
+          const k=(t.t-.10)/.55;
+          t.mesh.position.y=t.baseY-.08-1.4*k*k;
+          t.mesh.rotation.x=.045+k*.8; t.mesh.rotation.z=.025+k*.35;
         } else t.mesh.visible=false;
       }
     }
 
-    // Gentle lava motion
-    let lavaTime=0;
+    // Enhanced lava motion: UV flow + small bubbles.
+    let lavaTime=0, lavaBubbleTimer=0;
+    const lavaBubbles=[];
+    const lavaBubbleGeo=new THREE.SphereGeometry(.07,8,6);
+    const lavaBubbleMat=new THREE.MeshBasicMaterial({color:0xff7a14,transparent:true,opacity:.72,toneMapped:false});
+    function spawnLavaBubble(){
+      const b=new THREE.Mesh(lavaBubbleGeo,lavaBubbleMat.clone());
+      b.position.set((Math.random()-.5)*20.5,-9.94,Z_PIT_NORTH+Math.random()*(Z_PIT_SOUTH-Z_PIT_NORTH));
+      const k=.45+Math.random()*1.2;b.scale.setScalar(k);scene.add(b);lavaBubbles.push({b,age:0,life:.35+Math.random()*.35});
+    }
     function updateLava(dt){
-      lavaTime+=dt;
+      lavaTime+=dt; lavaBubbleTimer-=dt;
       lava.material.emissiveIntensity=1.45+Math.sin(lavaTime*2.1)*.2;
       lava.position.y=-10+Math.sin(lavaTime*.8)*.04;
+      if(lavaBubbleTimer<=0){spawnLavaBubble();lavaBubbleTimer=.12+Math.random()*.22;}
+      for(let i=lavaBubbles.length-1;i>=0;i--){const q=lavaBubbles[i];q.age+=dt;q.b.position.y+=dt*.13;q.b.scale.multiplyScalar(1+dt*.65);q.b.material.opacity=.72*(1-q.age/q.life);if(q.age>=q.life){scene.remove(q.b);q.b.material.dispose();lavaBubbles.splice(i,1);}}
+
       for(const d of dungeonLights){
         // Subtle, slow, irregular-looking warmth variation. Never flashes.
         const wobble=Math.sin(lavaTime*d.speed+d.phase)*.045 + Math.sin(lavaTime*d.speed*2.17+d.phase*.43)*.018;
@@ -1376,6 +1520,8 @@
       updateBreakTiles(dt);
       updateLava(dt);
       updateDeathSmoke(dt);
+      updateDust(dt);
+      updateBlobShadow();
       updatePosterInteraction();
       updateCamera(dt);
       renderer.render(scene,camera);
