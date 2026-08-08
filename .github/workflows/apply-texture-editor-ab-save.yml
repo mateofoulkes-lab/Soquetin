@@ -1,0 +1,24 @@
+name: Apply texture editor A/B save fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-texture-editor-ab-save.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch editor
+        run: python3 patch_texture_editor_ab_save.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add texture-editor.html
+          git commit -m "Make A/B texture choices exportable" || exit 0
+          git push
