@@ -1,0 +1,24 @@
+name: Apply V1.24 poster cylinder
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v124-poster-cylinder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game
+        run: python3 patch_v124_poster_cylinder.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use cylindrical poster proximity (V1.24)" || exit 0
+          git push
