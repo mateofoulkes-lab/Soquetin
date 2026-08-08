@@ -764,7 +764,7 @@
       yaw:Math.PI, camYaw:Math.PI, camPitch:.24,
       radius:.22, height:1.12, grounded:true,
       autoHopTimer:0, squash:0, dead:false, respawnTimer:0, deathSinkVy:0, deathSmokeTimer:0,
-      animPhase:'idle', animTime:0, animLaunchVy:2.35, tiltDeg:0, tiltPivotY:0, animStartTilt:0, animStartPivot:0,
+      animPhase:'idle', animTime:0, animLaunchVy:2.35, tiltDeg:0, tiltPivotY:0, animStartTilt:0, animStartPivot:0, jumpTiltActive:false,
       spawn:new THREE.Vector3(0,.02,10.2), bigJumpUsed:false
     };
 
@@ -945,6 +945,7 @@
       tiltRoot.position.set(0,pivotY*(1-Math.cos(a)),-pivotY*Math.sin(a));
     }
     function beginJumpTilt(launchVy){
+      P.jumpTiltActive=true;
       P.animPhase='takeoff';
       P.animTime=0;
       P.animLaunchVy=Math.max(.1,launchVy);
@@ -952,6 +953,11 @@
       P.animStartPivot=P.tiltPivotY;
     }
     function beginLandingTilt(){
+      if(!P.jumpTiltActive){
+        P.animPhase='idle';
+        applyCharacterTilt(0,0);
+        return;
+      }
       P.animPhase='land';
       P.animTime=0;
       P.animStartTilt=P.tiltDeg;
@@ -986,7 +992,7 @@
         P.animTime+=dt;
         const t=THREE.MathUtils.smoothstep(THREE.MathUtils.clamp(P.animTime/.16,0,1),0,1);
         applyCharacterTilt(THREE.MathUtils.lerp(-10,0,t),0);
-        if(P.animTime>=.16){ P.animPhase='idle'; applyCharacterTilt(0,0); }
+        if(P.animTime>=.16){ P.animPhase='idle'; P.jumpTiltActive=false; applyCharacterTilt(0,0); }
       } else if(P.grounded){
         applyCharacterTilt(0,0);
       }
@@ -997,13 +1003,20 @@
       // Solo se permite uno hasta volver a tocar una superficie.
       if(P.dead || P.bigJumpUsed) return;
       const dir=inputVector();
-      if(dir.lengthSq()<.01) dir.set(-Math.sin(P.camYaw),0,-Math.cos(P.camYaw));
+      const jumpHasDirection=dir.lengthSq()>=.01;
+      if(!jumpHasDirection) dir.set(-Math.sin(P.camYaw),0,-Math.cos(P.camYaw));
       dir.normalize();
       // Dos losetas quedan apenas al alcance de un salto muy bueno.
       P.vel.y=4.433;
       P.vel.x=dir.x*3.0; P.vel.z=dir.z*3.0;
       P.grounded=false; P.bigJumpUsed=true; P.squash=1;
-      beginJumpTilt(4.433);
+      if(jumpHasDirection){
+        beginJumpTilt(4.433);
+      }else{
+        P.jumpTiltActive=false;
+        P.animPhase='idle';
+        applyCharacterTilt(0,0);
+      }
       playSfx('jump',.82);
     }
 
