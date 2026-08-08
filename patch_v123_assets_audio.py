@@ -17,8 +17,7 @@ s=s.replace(old_audio,new_audio,1)
 # Big jump sound.
 s=s.replace("      beginJumpTilt(4.433);","      beginJumpTilt(4.433);\n      playSfx('jump',.82);",1)
 
-# False tile pop.
-s=s.replace("          t.broken=true; t.t=0; tone(125,.10,'square',.025); break;","          t.broken=true; t.t=0; playSfx('pop',.9); break;",1)
+# Keep the existing synthetic false-tile click for now.
 
 # Death sound.
 s=s.replace("      lavaSound();","      playSfx('death',.9);",1)
@@ -28,6 +27,9 @@ s=s.replace("          beginJumpTilt(2.585);","          beginJumpTilt(2.585);\n
 
 # Landing/compression sound on real landings.
 s=s.replace("          P.squash=.38;\n          beginLandingTilt();","          P.squash=.38;\n          beginLandingTilt();\n          playSfx('walkCompress',.48);",1)
+
+# Respawn pop.
+s=s.replace("      clearDeathSmoke();\n    }","      clearDeathSmoke();\n      playSfx('pop',.9);\n    }",1)
 
 # Preload all final artwork and sound assets.
 old_pre="const preloadAssets=[SOQUETIN_MODEL_URL,'1000142570.jpg'];"
