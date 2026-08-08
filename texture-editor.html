@@ -107,7 +107,7 @@ const TEXTURE_TABLE_A = {
   "wall@-3.5,2.5,-13.04#face1": {"scope":"face","repeatU":0.1,"repeatV":5.05,"offsetU":0.92,"offsetV":0.75,"rotation":0},
   "wall@3.5,2.5,-13.04#face1": {"scope":"face","repeatU":0.1,"repeatV":5.05,"offsetU":0.92,"offsetV":0.75,"rotation":0},
   "floor@-7,-0.12,-10.54#object": {"scope":"object","repeatU":1.2,"repeatV":0.75,"offsetU":-1.12,"offsetV":0.03,"rotation":0},
-  "lintel@-7,3.7,-13.04#face4": {"scope":"face","repeatU":0.55,"repeatV":2.6,"offsetU":-0.93,"offsetV":0.08,"rotation":0},
+  "lintel@-7,3.7,-13.04#face4": {"scope":"face","repeatU":0.45,"repeatV":2.6,"offsetU":-0.96,"offsetV":0.08,"rotation":0},
   "lintel@0,3.7,-13.04#face4": {"scope":"face","repeatU":0.4,"repeatV":2.6,"offsetU":-0.74,"offsetV":-0.04,"rotation":0},
   "wall@-5.55,2.5,-20.04#object": {"scope":"object","repeatU":3.5,"repeatV":5.05,"offsetU":0.78,"offsetV":0,"rotation":0},
   "lintel@0,3.7,-20.04#object": {"scope":"object","repeatU":0.35,"repeatV":2.65,"offsetU":-0.11,"offsetV":0.22,"rotation":0},
@@ -124,7 +124,9 @@ const TEXTURE_TABLE_A = {
   "wall@-3.5,2.5,-13.04#face5": {"scope":"face","repeatU":2,"repeatV":5.05,"offsetU":0,"offsetV":0,"rotation":0},
   "wall@9.05,2.5,-13.04#face5": {"scope":"face","repeatU":0.95,"repeatV":5.05,"offsetU":0.21,"offsetV":0,"rotation":0},
   "wall@-9.05,2.5,-13.04#face5": {"scope":"face","repeatU":1.1,"repeatV":5.05,"offsetU":0.79,"offsetV":0,"rotation":0},
-  "wall@9.05,2.5,-13.04#face4": {"scope":"face","repeatU":1,"repeatV":5.05,"offsetU":1.38,"offsetV":0,"rotation":0}
+  "wall@9.05,2.5,-13.04#face4": {"scope":"face","repeatU":1,"repeatV":5.05,"offsetU":1.38,"offsetV":0,"rotation":0},
+  "wall@-9.05,2.5,-13.04#face4": {"scope":"face","repeatU":1.1,"repeatV":5.05,"offsetU":0,"offsetV":0,"rotation":0},
+  "wall@-9.05,2.5,-13.04#face0": {"scope":"face","repeatU":0.1,"repeatV":5.05,"offsetU":0,"offsetV":0,"rotation":0}
 };
 const TEXTURE_TABLE_B = {
   "floor@0,-0.12,9#face2":{"scope":"face","repeatU":3.5,"repeatV":1.15,"offsetU":0,"offsetV":0,"rotation":0},
@@ -168,7 +170,7 @@ let hovered=null, lastAB='';
 
 // A/B export starts from the known-good stable table. Versioned migration avoids
 // carrying the previous experimental B-only localStorage into the new mixer.
-const AB_MIX_VERSION='5';
+const AB_MIX_VERSION='6';
 if(localStorage.getItem('soquetinABMixVersion')!==AB_MIX_VERSION){
   saved=JSON.parse(JSON.stringify(TEXTURE_TABLE_A));
   localStorage.setItem('soquetinABMixVersion',AB_MIX_VERSION);
