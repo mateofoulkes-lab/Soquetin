@@ -1,0 +1,24 @@
+name: Apply final manual textures fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-final-manual-textures-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game and editor textures
+        run: python3 patch_final_manual_textures_fix.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html texture-editor.html
+          git commit -m "Apply final manual texture corrections" || exit 0
+          git push
