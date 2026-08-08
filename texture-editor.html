@@ -168,7 +168,7 @@ let hovered=null, lastAB='';
 
 // A/B export starts from the known-good stable table. Versioned migration avoids
 // carrying the previous experimental B-only localStorage into the new mixer.
-const AB_MIX_VERSION='4';
+const AB_MIX_VERSION='5';
 if(localStorage.getItem('soquetinABMixVersion')!==AB_MIX_VERSION){
   saved=JSON.parse(JSON.stringify(TEXTURE_TABLE_A));
   localStorage.setItem('soquetinABMixVersion',AB_MIX_VERSION);
