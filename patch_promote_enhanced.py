@@ -15,7 +15,9 @@ s=re.sub(r'\n\s*<div id="perfMeter">.*?</div>', '', s, count=1, flags=re.S)
 s=re.sub(r'\n\s*<div id="finalScreen">.*?</div></div>', '', s, count=1, flags=re.S)
 
 # Remove all purely decorative max-aesthetics additions (torches/webs/cracks/rocks/lava smoke).
-start='    // ------------------------------------------------------------\n    // MAX AESTHETICS TEST — decorative only, no gameplay collision/support.\n'
+start='    // ------------------------------------------------------------\n    // MAX AESTHICS TEST — decorative only, no gameplay collision/support.\n'
+if start not in s:
+    start='    // ------------------------------------------------------------\n    // MAX AESTHETICS TEST — decorative only, no gameplay collision/support.\n'
 end='    // Apply exported UV/repeat settings after all dungeon geometry is built.\n'
 if start not in s or end not in s:
     raise SystemExit('max-aesthetics block anchors not found')
@@ -33,8 +35,14 @@ if old not in s:
     raise SystemExit('final poster close logic not found')
 s=s.replace(old,new,1)
 
-# Remove performance meter JS block and call.
-s=re.sub(r"\n\s*const perfMeter=document\.getElementById\('perfMeter'\);.*?\n\s*function updatePerf\(dt\)\{.*?\n\s*\}\n", '\n', s, count=1, flags=re.S)
+# Remove performance meter JS as a whole, using animate() as the hard end anchor.
+perf_start="    const perfMeter=document.getElementById('perfMeter');\n"
+anim_start='    function animate(){\n'
+if perf_start not in s or anim_start not in s:
+    raise SystemExit('performance block anchors not found')
+a=s.index(perf_start)
+b=s.index(anim_start,a)
+s=s[:a]+s[b:]
 s=s.replace('      updatePerf(dt);\n','',1)
 
 # Remove max-aesthetics update call if present.
