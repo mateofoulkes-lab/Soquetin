@@ -1,0 +1,35 @@
+name: Apply index2 max aesthetics
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-index2-max-aesthetics.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch enhanced build
+        run: python3 patch_index2_max_aesthetics.py
+      - name: Syntax check
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index2.html').read_text(encoding='utf-8')
+          m=re.search(r'<script type="module">(.*?)</script>',s,re.S)
+          if not m: raise SystemExit('module script not found')
+          Path('/tmp/index2-check.mjs').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/index2-check.mjs
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index2.html
+          git commit -m "Add max aesthetics experiment to index2" || exit 0
+          git push
