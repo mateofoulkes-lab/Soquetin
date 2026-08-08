@@ -1,0 +1,34 @@
+name: Fix enhanced index2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-index2-enhanced.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index2
+        run: python3 patch_index2_final_fixes.py
+      - name: Syntax-check module script
+        run: |
+          python3 - <<'PY'
+          import re, pathlib
+          s=pathlib.Path('index2.html').read_text()
+          m=re.search(r'<script type="module">(.*?)</script>',s,re.S)
+          assert m
+          pathlib.Path('/tmp/index2.mjs').write_text(m.group(1))
+          PY
+          node --check /tmp/index2.mjs
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index2.html
+          git commit -m "Polish enhanced jump buffer and final screen" || exit 0
+          git push
